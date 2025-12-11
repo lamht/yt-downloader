@@ -16,7 +16,7 @@ def _base_ydl_opts(extra: dict | None = None):
         "logger": logger,
         "forceipv4": True,
         "socket_timeout": 30,
-        "retries": {"main": 10, "fragment": 10},
+        "retries": 10,  # int, not dict
         "fragment_retries": 10,
         "skip_unavailable_fragments": True,
         "http_headers": {
