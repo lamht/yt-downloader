@@ -8,13 +8,24 @@
   <body>
     <div class="container">
         <h2>YouTube Downloader</h2>
+
+        <!-- show flashed messages -->
+        {% if flashed %}
+          <ul class="flashes">
+            {% for category, msg in flashed %}
+              <li class="{{ category }}">{{ msg }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
         <form method="POST">
+            <input type="hidden" name="action" value="inspect"/>
             <input type="text" name="url" placeholder="Paste YouTube URL" required>
-            <button type="submit">Download</button>
+            <button type="submit">Inspect formats</button>
         </form>
 
         {% if error %}
-          <p style="color:red">{{ error }}</p>
+          <pre style="color:red;white-space:pre-wrap">{{ error }}</pre>
         {% endif %}
 
         {% if formats %}
