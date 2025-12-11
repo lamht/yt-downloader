@@ -7,6 +7,7 @@ import traceback
 import subprocess
 import uuid
 from threading import Thread, Lock
+from urllib.parse import quote
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
@@ -121,8 +122,9 @@ def index():
                         acc_path = process_file(result.get("filepath"), "acc")
                         _set_download(k, {"status": "done", "filepath": acc_path})
                         
-                        with app.app_context():
-                            download_url = url_for('download', folder='acc', filename=os.path.basename(acc_path))
+                        # build a safe relative download URL (no app context required)
+                        safe_name = quote(os.path.basename(acc_path), safe='')
+                        download_url = f"/download/acc/{safe_name}"
                         socketio.emit("download_complete", {
                             "key": k,
                             "status": "success",
