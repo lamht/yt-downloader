@@ -41,10 +41,14 @@ def get_video_info(url: str):
     """
     Return video meta and available formats without downloading.
     """
-    ydl_opts = _base_ydl_opts({"skip_download": True})
+    ydl_opts = _base_ydl_opts({
+        "skip_download": True,
+        "process_info": False,  # don't process/validate formats
+    })
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            # use extract_info with process=False to get raw info without validation
+            info = ydl.extract_info(url, download=False, process=False)
             title = info.get("title") or "download"
             formats = []
             for f in info.get("formats", []):
