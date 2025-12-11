@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./app ./app
 
 WORKDIR /app
-CMD ["python", "main.py"]
+CMD ["python", "app/main.py"]
