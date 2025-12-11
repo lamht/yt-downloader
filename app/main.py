@@ -38,26 +38,27 @@ def _get_download(key: str):
 
 # ---------- File processor ----------
 def process_file(src_path: str, dst_dir: str) -> str:
-    os.makedirs(dst_dir, exist_ok=True)
+    DST_DIR = "/app/download"
+    os.makedirs(DST_DIR, dst_dir, exist_ok=True)
     filename = os.path.basename(src_path)
     name, ext = os.path.splitext(filename)
     ext = ext.lower()
 
     # choose output
     if ext == ".mp4":
-        dst = os.path.join(dst_dir, f"{name}.m4a")
+        dst = os.path.join(DST_DIR, dst_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst]
 
     elif ext == ".m4a":
-        dst = os.path.join(dst_dir, filename)
+        dst = os.path.join(DST_DIR, dst_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
     elif ext in (".opus", ".webm"):
-        dst = os.path.join(dst_dir, f"{name}.mp3")
+        dst = os.path.join(DST_DIR, dst_dir, f"{name}.mp3")
         cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst]
 
     else:
-        dst = os.path.join(dst_dir, filename)
+        dst = os.path.join(DST_DIR, dst_dir, filename)
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -127,11 +128,11 @@ def index():
                         })
 
                         # process with ffmpeg
-                        acc_path = process_file(tmp, "acc")
-                        _set_download(k, {"status": "done", "filepath": acc_path})
+                        aac_path = process_file(tmp, "aac")
+                        _set_download(k, {"status": "done", "filepath": aac_path})
 
-                        safe_name = quote(os.path.basename(acc_path))
-                        download_url = f"/download/acc/{safe_name}"
+                        safe_name = quote(os.path.basename(aac_path))
+                        download_url = f"/download/aac/{safe_name}"
 
                         socketio.emit("download_complete", {
                             "key": k,
@@ -170,9 +171,10 @@ def index():
                            flashed=flashed)
 
 # ---------- File download ----------
-@app.route("/download/acc/<filename>")
-def download_acc(filename):
-    path = os.path.join("acc", filename)
+@app.route("/download/aac/<filename>")
+def download_aac(filename):
+    DST_DIR = "/app/download"
+    path = os.path.join(DST_DIR, "aac", filename)
     if os.path.exists(path):
         return send_file(path, as_attachment=True)
     return "File not found", 404
