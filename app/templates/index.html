@@ -75,6 +75,18 @@
   <!-- container for live download entries -->
   <div id="downloadList" aria-live="polite"></div>
 
+  {% if formats %}
+  <!-- sticky bottom download bar -->
+  <div class="sticky-actions" id="stickyBar">
+    <label style="display:flex;align-items:center;gap:8px;color:var(--muted);margin-right:auto">
+      <input type="checkbox" form="downloadForm" name="audio_only" value="1" id="audioOnly" /> MP3 only
+    </label>
+    <button type="submit" form="downloadForm" class="input-row button" style="background:var(--accent);color:#fff;border-radius:8px;padding:10px 14px;border:none;cursor:pointer">
+      ⬇ Download Selected
+    </button>
+  </div>
+  {% endif %}
+
   <script>
     const socket = io();
     const downloadsMap = {}; // key -> DOM element
