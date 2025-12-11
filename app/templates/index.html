@@ -6,23 +6,44 @@
   <title>YouTube Downloader</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
-    :root{--muted:#9aa4b2;--accent:#ef4444;--success:#10b981}
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#071022;color:#e6eef6}
+    :root {
+      --muted:#9aa4b2;
+      --accent:#ef4444;
+      --success:#10b981;
+      --bg:#071022;
+      --panel:#071427;
+      --dl-bg:rgba(11,18,32,0.95);
+      --toast-bg:rgba(7,18,39,0.95);
+    }
+
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#e6eef6}
     .wrap{max-width:1100px;margin:28px auto;padding:20px}
-    .panel{background:#071427;padding:18px;border-radius:12px}
+    .panel{background:var(--panel);padding:18px;border-radius:12px}
     .input-row{display:flex;gap:10px}
     .input-row input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-    .input-row button{padding:10px 12px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer}
+    .input-row button{padding:10px 12px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;transition:0.2s}
+    .input-row button:hover{opacity:0.9}
+
     /* downloads list */
     #downloadList{position:fixed;left:18px;bottom:18px;z-index:1200;display:flex;flex-direction:column;gap:10px}
-    .dl-row{background:rgba(11,18,32,0.95);padding:10px;border-radius:8px;min-width:300px}
-    .dl-title{font-weight:700}
-    .dl-status{color:var(--muted);margin-top:6px}
+    .dl-row{background:var(--dl-bg);padding:10px;border-radius:8px;min-width:300px;box-shadow:0 2px 6px rgba(0,0,0,0.5)}
+    .dl-title{font-weight:700;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+    .dl-status{color:var(--muted);margin-top:6px;font-size:0.9rem}
     a.dl-link{color:#7dd3fc;font-weight:700;text-decoration:none}
-    /* formats area */
-    .fmt-row{display:flex;gap:12px;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);border:1px solid rgba(255,255,255,0.02)}
+
+    /* formats */
+    .fmt-row{display:flex;gap:12px;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);border:1px solid rgba(255,255,255,0.02);cursor:pointer;transition:0.15s}
+    .fmt-row:hover{background:rgba(255,255,255,0.05)}
     .fmt-meta{flex:1}
-    .sticky-actions{position:fixed;bottom:0;left:0;right:0;background:rgba(11,18,32,0.95);padding:12px 20px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:100}
+
+    /* sticky bottom bar */
+    .sticky-actions{position:fixed;bottom:0;left:0;right:0;background:var(--dl-bg);padding:12px 20px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:100;flex-wrap:wrap}
+    .sticky-actions label{display:flex;align-items:center;gap:8px;color:var(--muted);margin-right:auto;cursor:pointer}
+    .sticky-actions button{background:var(--accent);color:#fff;border-radius:8px;padding:10px 14px;border:none;cursor:pointer;transition:0.2s}
+    .sticky-actions button:hover{opacity:0.9}
+
+    /* toast */
+    .toast{position:fixed;right:18px;top:18px;background:var(--toast-bg);color:#e6eef6;padding:10px 14px;border-radius:8px;z-index:2000;box-shadow:0 2px 6px rgba(0,0,0,0.5);opacity:0.95;transition:0.3s}
   </style>
 </head>
 <body>
@@ -72,25 +93,21 @@
     {% endif %}
   </div>
 
-  <!-- container for live download entries -->
   <div id="downloadList" aria-live="polite"></div>
 
   {% if formats %}
-  <!-- sticky bottom download bar -->
   <div class="sticky-actions" id="stickyBar">
-    <label style="display:flex;align-items:center;gap:8px;color:var(--muted);margin-right:auto">
+    <label>
       <input type="checkbox" form="downloadForm" name="audio_only" value="1" id="audioOnly" /> MP3 only
     </label>
-    <button type="submit" form="downloadForm" class="input-row button" style="background:var(--accent);color:#fff;border-radius:8px;padding:10px 14px;border:none;cursor:pointer">
-      ⬇ Download Selected
-    </button>
+    <button type="submit" form="downloadForm">⬇ Download Selected</button>
   </div>
   {% endif %}
 
   <script>
     const socket = io();
-    const downloadsMap = {}; // key -> DOM element
-    const myDownloadKeys = new Set(); 
+    const downloadsMap = {};
+    const myDownloadKeys = new Set();
 
     function createRow(key, title){
       const row = document.createElement('div');
@@ -106,128 +123,68 @@
       if(el) el.innerHTML = html;
     }
 
-    socket.on('connect', () => console.debug('socket connected'));
-
     socket.on('download_started', (data) => {
       const key = data.key;
       const title = data.title || 'download';
-      // register this key as belonging to this client
       myDownloadKeys.add(key);
       if(!downloadsMap[key]) createRow(key, title);
       setStatus(key, data.message || 'Queued');
     });
 
     socket.on('download_status', (data) => {
-      if(!data || !data.key) return;
-      // only process if key is mine
-      if (!myDownloadKeys.has(data.key)) {
-        console.debug('Ignoring download_status for key:', data.key);
-        return;
-      }
-      const msg = data.message || data.status || '...';
+      if(!data || !data.key || !myDownloadKeys.has(data.key)) return;
       if(!downloadsMap[data.key]) createRow(data.key, data.title || 'download');
-      setStatus(data.key, msg);
+      setStatus(data.key, data.message || data.status || '...');
+      showToast(data.message || data.status, 2000);
     });
 
     socket.on('download_complete', (data) => {
-      console.log('download_complete RAW:', data);  // <-- add this debug line
-      console.log('download_complete', data);
-      if(!data || !data.key) {
-        console.warn('No data or key in download_complete');
-        return;
-      }
-      // only process if key is mine
-      if (!myDownloadKeys.has(data.key)) {
-        console.debug('Ignoring download_complete for key:', data.key, 'my keys:', Array.from(myDownloadKeys));
-        return;
-      }
+      if(!data || !data.key || !myDownloadKeys.has(data.key)) return;
       const key = data.key;
       if(!downloadsMap[key]) createRow(key, data.title || 'download');
 
-      // normalize relative url
-      let downloadUrl = null;
-      if (data.download_url) {
-        console.log('Found download_url:', data.download_url);  // <-- add this
-        if (/^https?:\/\//.test(data.download_url)) downloadUrl = data.download_url;
-        else downloadUrl = window.location.origin + data.download_url;
-      } else {
-        console.warn('No download_url in data');  // <-- add this
-      }
+      let downloadUrl = data.download_url ? (data.download_url.startsWith('http') ? data.download_url : window.location.origin + data.download_url) : null;
 
       if(data.status === 'success' && downloadUrl){
         const fname = decodeURIComponent(downloadUrl.split('/').pop());
-        const link = `<a class="dl-link" href="${downloadUrl}" download="${fname}">⬇ Download</a>`;
-        console.log('Setting link:', link);  // <-- add this
-        setStatus(key, link);
+        setStatus(key, `<a class="dl-link" href="${downloadUrl}" download="${fname}">⬇ Download</a>`);
+        showToast(data.message||'Ready',2500);
       } else if(data.status === 'error'){
-        setStatus(key, `Error: ${data.message || 'failed'}`);
-      } else {
-        setStatus(key, data.message || data.status || 'Done');
+        setStatus(key, `Error: ${data.message||'failed'}`);
+        showToast(data.message||'Error',5000);
       }
     });
 
-    // small toast notifications
     function showToast(msg, timeout=3500){
+      if(!msg) return;
       const t = document.createElement('div');
-      t.style.position='fixed'; t.style.right='18px'; t.style.top='18px';
-      t.style.background='rgba(7,18,39,0.95)'; t.style.color='#e6eef6'; t.style.padding='10px';
-      t.style.borderRadius='8px'; t.style.zIndex=2000; t.textContent = msg;
+      t.className='toast';
+      t.textContent = msg;
       document.body.appendChild(t);
       setTimeout(()=> t.remove(), timeout);
-    }
-    socket.on('download_status', d => { if(d && d.message && myDownloadKeys.has(d.key)) showToast(d.message,2000); });
-    socket.on('download_complete', d => { 
-      if(!d || !d.key || !myDownloadKeys.has(d.key)) return;
-      if(d.status==='success') showToast(d.message||'Ready',2500); 
-      else if(d.status==='error') showToast(d.message||'Error',5000); 
-    });
-
-    // auto-submit download form from sticky area if you add one; otherwise user clicks Inspect -> select -> submit via form
-    // ensure the download form is submitted when user presses Ctrl+Enter in the URL input
-    const urlInput = document.querySelector('input[name="url"]');
-    if(urlInput){
-      urlInput.addEventListener('keydown', (e) => {
-        if(e.ctrlKey && e.key === 'Enter'){
-          document.getElementById('inspectForm').submit();
-        }
-      });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       const downloadForm = document.getElementById('downloadForm');
-      if (!downloadForm) return;
+      if(!downloadForm) return;
 
-      downloadForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const submitBtn = document.querySelector('button[form="downloadForm"]');
-          if (submitBtn) submitBtn.disabled = true;
+      downloadForm.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const submitBtn = downloadForm.querySelector('button[type="submit"]');
+        if(submitBtn) submitBtn.disabled = true;
 
-          const formData = new FormData(downloadForm);
-          formData.set('action', 'download');
+        const formData = new FormData(downloadForm);
+        formData.set('action', 'download');
 
-          try {
-              const res = await fetch(downloadForm.action || window.location.href, {
-                  method: 'POST',
-                  body: formData,
-                  credentials: 'same-origin'
-              });
-              
-              if (!res.ok) {
-                  showToast('Failed to queue download', 4000);
-              } else {
-                  const data = await res.json();
-                  if (data.key) {
-                      myDownloadKeys.add(data.key);  // Track this key
-                      console.log('Download key:', data.key);
-                  }
-                  showToast('Download queued', 2000);
-              }
-          } catch (err) {
-              console.error(err);
-              showToast('Network error', 4000);
-          } finally {
-              if (submitBtn) submitBtn.disabled = false;
-          }
+        try{
+          const res = await fetch(downloadForm.action || window.location.href, {method:'POST',body:formData});
+          if(res.ok){
+            const data = await res.json();
+            if(data.key) myDownloadKeys.add(data.key);
+            showToast('Download queued',2000);
+          } else showToast('Failed to queue download',4000);
+        }catch(err){console.error(err);showToast('Network error',4000);}
+        finally{if(submitBtn) submitBtn.disabled=false;}
       });
     });
   </script>
