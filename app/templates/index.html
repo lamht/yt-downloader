@@ -150,16 +150,20 @@
           <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
 
           <div class="formats" id="formats">
-            {% for f in formats %}
-            <div class="fmt-row" data-ext="{{ f.ext }}" data-res="{% if f.height %}{{ f.height }}{% else %}0{% endif %}" data-filesize="{{ f.filesize or 0 }}">
-              <div class="fmt-select"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %} /></div>
-              <div class="fmt-meta">
-                <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">• {{ f.format_note or f.format }}</span></div>
-                <div class="fmt-note">{{ f.vcodec }} / {{ f.acodec }} • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio{% endif %}</div>
+            {% if formats %}
+              {% for f in formats %}
+              <div class="fmt-row" data-ext="{{ f.ext }}" data-res="{% if f.height %}{{ f.height }}{% else %}0{% endif %}" data-filesize="{{ f.filesize or 0 }}">
+                <div class="fmt-select"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %} /></div>
+                <div class="fmt-meta">
+                  <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">• {{ f.format_note or f.format }}</span></div>
+                  <div class="fmt-note">{{ f.vcodec }} / {{ f.acodec }} • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio{% endif %}</div>
+                </div>
+                <div class="fmt-size">{% if f.filesize %}{{ (f.filesize // 1024) }} KB{% endif %}</div>
               </div>
-              <div class="fmt-size">{% if f.filesize %}{{ (f.filesize // 1024) }} KB{% endif %}</div>
-            </div>
-            {% endfor %}
+              {% endfor %}
+            {% else %}
+              <div style="color:var(--muted);text-align:center;padding:20px">No formats loaded. Inspect a URL first.</div>
+            {% endif %}
           </div>
 
         </form>
