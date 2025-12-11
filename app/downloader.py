@@ -16,7 +16,7 @@ def _base_ydl_opts(extra: dict | None = None):
         "logger": logger,
         "forceipv4": True,
         "socket_timeout": 30,
-        "retries": 10,  # int, not dict
+        "retries": 10,
         "fragment_retries": 10,
         "skip_unavailable_fragments": True,
         "http_headers": {
@@ -28,11 +28,11 @@ def _base_ydl_opts(extra: dict | None = None):
         },
         "extractor_args": {
             "youtube": {
-                "player_client": ["android"],
+                "player_client": ["web"],  # use web instead of android (no PO Token required)
                 "player_skip": ["js", "configs"],
             }
         },
-        "cookiefile": None,  # will use default browser cookies if available
+        "cookiefile": None,
     }
     if extra:
         opts.update(extra)

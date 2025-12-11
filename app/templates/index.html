@@ -3,84 +3,42 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Downloader — Modern UI</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>YouTube Downloader</title>
   <style>
-    /* Minimal, modern styles (no external framework) */
     :root{
       --bg:#0f1720; --card:#0b1220; --muted:#9aa4b2; --accent:#ef4444; --glass: rgba(255,255,255,0.04);
       --success: #10b981; --danger:#ef4444; --radius:12px; --maxw:1100px;
     }
     html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:linear-gradient(180deg,#071023 0%, #071728 60%);color:#e6eef6}
     .wrap{max-width:var(--maxw);margin:28px auto;padding:20px}
-
     header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
     header h1{font-size:1.45rem;margin:0}
     header p{margin:0;color:var(--muted);font-size:0.95rem}
-
-    .hero{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
     .panel{background:var(--card);padding:18px;border-radius:var(--radius);box-shadow:0 6px 30px rgba(2,6,23,0.6)}
-
-    /* input area */
     .input-row{display:flex;gap:10px}
     .input-row input[type=text]{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;font-size:1rem}
     .input-row button{background:var(--accent);border:0;color:white;padding:12px 14px;border-radius:10px;font-weight:600;cursor:pointer}
-
-    /* thumbnail / meta */
-    .meta{display:flex;gap:12px}
-    .thumb{width:160px;height:90px;border-radius:8px;background:linear-gradient(90deg,#0a1220,#0e1a2a);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.85rem}
-    .meta .info{flex:1}
-    .title{font-size:1.05rem;font-weight:700;margin:0}
-    .sub{color:var(--muted);margin-top:6px;font-size:0.88rem}
-
-    /* action buttons */
-    .actions{display:flex;gap:8px;margin-top:12px}
     .btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-weight:600;cursor:pointer}
     .btn.primary{background:var(--accent);border:none;color:white}
-    .btn.ghost{background:transparent}
-    .btn:disabled{opacity:0.5;cursor:not-allowed}
-
-    /* two columns below hero */
-    .content{display:grid;grid-template-columns:2fr 320px;gap:18px;margin-top:18px}
-
-    /* formats list */
-    .formats{display:flex;flex-direction:column;gap:10px}
+    .btn.success{background:var(--success);border:none;color:white}
     .fmt-row{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.03)}
     .fmt-select{width:36px}
     .fmt-meta{flex:1;display:flex;flex-direction:column}
     .fmt-title{display:flex;align-items:center;gap:10px;font-weight:700}
     .fmt-note{color:var(--muted);font-size:0.9rem}
     .fmt-size{min-width:88px;text-align:right;color:var(--muted)}
-
-    /* right column: filters & sticky bar */
-    .sidebar .card{padding:12px}
-    .filter{display:flex;flex-direction:column;gap:8px}
-    .filter label{display:flex;gap:8px;align-items:center}
-
-    /* sticky download bar */
-    .sticky-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;width:calc(100% - 40px);max-width:var(--maxw);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:14px;background:linear-gradient(90deg,rgba(10,10,12,0.9),rgba(8,12,20,0.8));box-shadow:0 10px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03)}
-    .sticky-left{display:flex;gap:12px;align-items:center}
-    .sticky-right{display:flex;gap:8px}
-
-    /* modal error */
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(rgba(2,6,23,0.6),rgba(2,6,23,0.7));z-index:9999}
-    .modal.open{display:flex}
-    .modal .box{background:#071227;padding:18px;border-radius:12px;max-width:720px;width:92%;color:#ffdede;border:1px solid rgba(255,0,0,0.06);max-height:80vh;overflow-y:auto}
-    .modal pre{white-space:pre-wrap;word-break:break-word;margin:0;color:#ffdede;font-size:0.85rem}
-
-    /* loading */
-    .spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,0.08);border-top-color:var(--accent);animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    /* responsive */
-    @media (max-width:980px){
-      .hero{grid-template-columns:1fr}
-      .content{grid-template-columns:1fr}
-      .thumb{width:220px;height:124px}
-    }
+    .alert{padding:12px;border-radius:10px;margin-top:12px}
+    .alert.success{background:rgba(16,185,129,0.1);border:1px solid var(--success);color:#a7f3d0}
+    .alert.error{background:rgba(239,68,68,0.1);border:1px solid var(--danger);color:#fca5a5}
+    .alert.error pre{white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;font-size:0.85rem;margin:8px 0 0}
+    .download-result{padding:16px;border-radius:10px;background:linear-gradient(90deg,rgba(16,185,129,0.1),transparent);border:1px solid var(--success);margin-top:18px}
+    .download-result h3{margin:0 0 8px;color:var(--success)}
+    .download-result p{margin:8px 0;color:var(--muted)}
+    .download-result a{color:var(--accent);text-decoration:none;font-weight:600}
+    .download-result a:hover{text-decoration:underline}
     @media (max-width:640px){
-      .thumb{width:140px;height:90px}
-      .sticky-bar{width:calc(100% - 22px)}
+      .wrap{padding:12px}
+      .input-row{flex-direction:column}
     }
   </style>
 </head>
@@ -89,230 +47,78 @@
     <header>
       <div>
         <h1>YouTube Downloader</h1>
-        <p>Paste a YouTube URL, inspect formats, then download. Designed for mobile and desktop.</p>
+        <p>Paste URL → Inspect → Download</p>
       </div>
-      <div style="margin-left:auto;color:var(--muted);font-size:0.9rem">v1.0</div>
     </header>
 
-    <div class="hero">
-      <div class="panel">
-        <form id="inspectForm" method="POST">
-          <input type="hidden" name="action" value="inspect" />
-          <div class="input-row">
-            <input type="text" name="url" placeholder="Paste YouTube URL" required value="{{ request.form.url or '' }}" />
-            <button type="submit">Inspect</button>
-          </div>
-        </form>
+    <!-- Alerts -->
+    {% if flashed %}
+      {% for category, msg in flashed %}
+        <div class="alert {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
 
-        {% if title and formats %}
-        <div style="margin-top:14px" class="meta panel">
-          <div style="display:flex;gap:12px">
-            <div class="thumb">Thumbnail</div>
-            <div class="info">
-              <div class="title">{{ title }}</div>
-              <div class="sub">YouTube Video</div>
-              <div class="actions">
-                <button class="btn primary" onclick="document.getElementById('downloadForm').submit();return false">Download Selected</button>
-                <button class="btn ghost" id="btn-mp3">Download MP3</button>
-                <button class="btn ghost" id="btn-best">Download Best</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        {% if error %}
-        <div style="margin-top:12px" class="panel" role="alert">
-          <strong style="color:var(--danger)">Error:</strong>
-          <pre style="color: #ffdede; white-space:pre-wrap; margin-top:8px; max-height:200px; overflow:auto">{{ error[:500] }}</pre>
-          {% if error|length > 500 %}
-            <button class="btn" style="margin-top:8px" onclick="openModal()">View full error</button>
-          {% endif %}
-        </div>
-        {% endif %}
+    {% if error %}
+      <div class="alert error">
+        <strong>Error:</strong>
+        <pre>{{ error[:500] }}{% if error|length > 500 %}...[truncated]{% endif %}</pre>
       </div>
+    {% endif %}
 
-      <aside class="panel sidebar">
-        <div style="font-weight:700;margin-bottom:8px">Filters</div>
-        <div class="filter">
-          <label><input type="checkbox" id="f-audio" /> Audio only</label>
-          <label><input type="checkbox" id="f-1080" /> 1080p+</label>
-          <label><input type="checkbox" id="f-720" /> 720p+</label>
-        </div>
+    <!-- Download Result -->
+    {% if filepath and title %}
+      <div class="download-result">
+        <h3>✓ Download Complete!</h3>
+        <p><strong>{{ title }}</strong></p>
+        <p>File: <code>{{ filepath }}</code></p>
+        <a href="{{ url_for('download', filename=filepath) }}" class="btn success" download>
+          ⬇ Download File
+        </a>
+      </div>
+    {% endif %}
 
-        <div style="margin-top:18px">
-          <div style="font-weight:700;margin-bottom:8px">Quick actions</div>
-          <button class="btn" id="clearBtn">Clear filters</button>
+    <!-- Input Form -->
+    <div class="panel" style="margin-top:18px">
+      <form method="POST">
+        <input type="hidden" name="action" value="inspect" />
+        <div class="input-row">
+          <input type="text" name="url" placeholder="Paste YouTube URL" required value="{{ request.form.url or '' }}" />
+          <button type="submit">Inspect</button>
         </div>
-      </aside>
+      </form>
     </div>
 
-    <div class="content">
-      <div class="panel">
+    <!-- Formats List -->
+    {% if formats %}
+      <div class="panel" style="margin-top:18px">
+        <h3 style="margin-top:0">Formats for: {{ title }}</h3>
         <form id="downloadForm" method="POST">
           <input type="hidden" name="action" value="download" />
           <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
 
-          <div class="formats" id="formats">
-            {% if formats %}
-              {% for f in formats %}
-              <div class="fmt-row" data-ext="{{ f.ext }}" data-res="{% if f.height %}{{ f.height }}{% else %}0{% endif %}" data-filesize="{{ f.filesize or 0 }}">
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+            {% for f in formats %}
+              <label class="fmt-row" style="cursor:pointer">
                 <div class="fmt-select"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %} /></div>
                 <div class="fmt-meta">
-                  <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">• {{ f.format_note or f.format }}</span></div>
+                  <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">{{ f.format_note or f.format }}</span></div>
                   <div class="fmt-note">{{ f.vcodec if f.vcodec != 'none' else 'audio' }} / {{ f.acodec if f.acodec != 'none' else 'no audio' }} • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio only{% endif %}</div>
                 </div>
                 <div class="fmt-size">{% if f.filesize %}{{ (f.filesize // (1024*1024))|round(1) }} MB{% else %}—{% endif %}</div>
-              </div>
-              {% endfor %}
-            {% else %}
-              <div style="color:var(--muted);text-align:center;padding:20px">No formats loaded. Paste a YouTube URL and click Inspect.</div>
-            {% endif %}
+              </label>
+            {% endfor %}
           </div>
 
+          <div style="display:flex;gap:8px">
+            <button type="submit" class="btn primary">Download Selected</button>
+            <label style="display:flex;align-items:center;gap:8px;color:var(--muted)">
+              <input type="checkbox" name="audio_only" value="1" /> MP3 only
+            </label>
+          </div>
         </form>
       </div>
-
-      <aside class="panel">
-        <div style="font-weight:700;margin-bottom:8px">Video info</div>
-        <div style="color:var(--muted);font-size:0.95rem">Title:</div>
-        <div style="margin-top:8px;word-break:break-word">{{ title or 'No video loaded' }}</div>
-
-        <div style="margin-top:12px;font-weight:700">Instructions</div>
-        <div style="color:var(--muted);margin-top:8px;font-size:0.9rem">1. Paste URL and click Inspect<br>2. Select a format<br>3. Click Download</div>
-      </aside>
-    </div>
+    {% endif %}
 
   </div>
-
-  <!-- Sticky bottom bar -->
-  <div class="sticky-bar" id="stickyBar" style="display:none">
-    <div class="sticky-left"><div class="spinner" id="stickySpinner" style="display:none"></div>
-      <div id="stickyText">No selection</div>
-    </div>
-    <div class="sticky-right">
-      <button class="btn" id="clearSel">Clear</button>
-      <button class="btn primary" id="submitBtn" onclick="document.getElementById('downloadForm').submit();">Download</button>
-    </div>
-  </div>
-
-  <!-- Modal for errors / long trace -->
-  <div class="modal" id="modalError">
-    <div class="box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <strong style="color:var(--danger)">Error details</strong>
-        <button class="btn" onclick="closeModal()">Close</button>
-      </div>
-      <pre id="modalContent">{{ error or 'No error message' }}</pre>
-    </div>
-  </div>
-
-  <script>
-    // UI helpers
-    const formatsEl = document.getElementById('formats');
-    const stickyBar = document.getElementById('stickyBar');
-    const stickyText = document.getElementById('stickyText');
-    const spinner = document.getElementById('stickySpinner');
-    const submitBtn = document.getElementById('submitBtn');
-
-    function updateSticky(){
-      const checked = document.querySelector('input[name="format_id"]:checked');
-      if(checked){
-        const row = checked.closest('.fmt-row');
-        const id = checked.value;
-        const size = row.querySelector('.fmt-size').textContent.trim();
-        stickyText.textContent = id + ' • ' + size;
-        stickyBar.style.display = 'flex';
-        submitBtn.disabled = false;
-      } else {
-        stickyBar.style.display = 'none';
-      }
-    }
-
-    if(formatsEl){
-      formatsEl.addEventListener('change', (e)=>updateSticky());
-    }
-
-    document.addEventListener('DOMContentLoaded', ()=> {
-      updateSticky();
-    });
-
-    // modal
-    function closeModal(){ document.getElementById('modalError').classList.remove('open'); }
-    function openModal(){ document.getElementById('modalError').classList.add('open'); }
-
-    // wire error modal if server returned long error
-    const serverError = `{{ error|replace('\n','\\n')|replace('"', '\\"') }}`;
-    if(serverError && serverError.trim().length > 200){ 
-      // auto-open modal if error is too long
-      setTimeout(()=>openModal(), 300);
-    }
-
-    // filters
-    document.getElementById('f-audio')?.addEventListener('change', (e)=>{
-      document.querySelectorAll('.fmt-row').forEach(r=>{
-        const ext = r.dataset.ext||''; 
-        if(e.target.checked){ 
-          r.style.display = ext==='m4a' || ext==='webm' || ext==='mp3' || ext==='opus' || ext==='vorbis' ? 'flex' : 'none'; 
-        } else r.style.display='flex';
-      }); 
-      updateSticky();
-    });
-
-    document.getElementById('f-1080')?.addEventListener('change', (e)=>{
-      document.querySelectorAll('.fmt-row').forEach(r=>{
-        const res = parseInt(r.dataset.res||0,10); 
-        if(e.target.checked){ 
-          r.style.display = res>=1080 ? 'flex' : 'none'; 
-        } else r.style.display='flex';
-      }); 
-      updateSticky();
-    });
-
-    document.getElementById('f-720')?.addEventListener('change', (e)=>{
-      document.querySelectorAll('.fmt-row').forEach(r=>{
-        const res = parseInt(r.dataset.res||0,10); 
-        if(e.target.checked){ 
-          r.style.display = res>=720 ? 'flex' : 'none'; 
-        } else r.style.display='flex';
-      }); 
-      updateSticky();
-    });
-
-    document.getElementById('clearBtn')?.addEventListener('click', ()=>{ 
-      document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false); 
-      document.querySelectorAll('.fmt-row').forEach(r=>r.style.display='flex'); 
-      updateSticky(); 
-    });
-
-    document.getElementById('clearSel')?.addEventListener('click', ()=>{
-      document.querySelector('input[name="format_id"]').checked = true;
-      updateSticky();
-    });
-
-    // quick actions
-    document.getElementById('btn-mp3')?.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const form = document.getElementById('downloadForm');
-      let el = document.querySelector('input[name="audio_only"]');
-      if(!el){ el = document.createElement('input'); el.type='hidden'; el.name='audio_only'; el.value='1'; form.appendChild(el); }
-      submitBtn.disabled = true;
-      spinner.style.display = 'inline-block';
-      form.submit();
-    });
-
-    document.getElementById('btn-best')?.addEventListener('click',(e)=>{ 
-      e.preventDefault(); 
-      const form = document.getElementById('downloadForm'); 
-      // uncheck all formats and remove audio_only
-      document.querySelectorAll('input[name="format_id"]').forEach(i=>i.checked=false);
-      let el = document.querySelector('input[name="audio_only"]');
-      if(el) el.remove();
-      submitBtn.disabled = true;
-      spinner.style.display = 'inline-block';
-      form.submit(); 
-    });
-
-  </script>
 </body>
 </html>

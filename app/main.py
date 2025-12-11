@@ -30,7 +30,6 @@ def index():
 
         try:
             if action == "inspect" or not action:
-                # default to inspect when action not provided
                 app.logger.info("Inspecting URL")
                 info = get_video_info(url)
                 formats = info.get("formats")
@@ -41,8 +40,9 @@ def index():
                 audio_only = request.form.get("audio_only") == "1"
                 app.logger.info("Downloading url=%s format_id=%s audio_only=%s", url, format_id, audio_only)
                 result = download_video(url, format_id=format_id, audio_only=audio_only)
-                filepath = result["filepath"]
-                title = result["title"]
+                filepath = result.get("filepath")
+                title = result.get("title")
+                app.logger.info("Download complete: filepath=%s, title=%s", filepath, title)
                 flash(f"Downloaded: {title}", "success")
         except Exception as e:
             tb = traceback.format_exc()
@@ -58,8 +58,11 @@ def index():
 def download(filename):
     # send absolute path to avoid cwd issues in container
     abspath = os.path.abspath(filename)
-    return send_file(abspath, as_attachment=True)
+    if os.path.exists(abspath):
+        return send_file(abspath, as_attachment=True)
+    else:
+        return "File not found", 404
 
 if __name__ == "__main__":
     os.makedirs("downloads", exist_ok=True)
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=False)
