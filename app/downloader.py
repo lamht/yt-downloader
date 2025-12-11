@@ -13,6 +13,14 @@ def _base_ydl_opts(extra: dict | None = None):
         "quiet": False,
         "no_warnings": False,
         "logger": logger,
+        "forceipv4": True,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9"
+        },
+        "extractor_args": {
+            "youtube": {"player_client": ["android"]}
+        }
     }
     if extra:
         opts.update(extra)
@@ -51,23 +59,19 @@ def download_video(url: str, out_dir="downloads", format_id: str | None = None, 
     os.makedirs(out_dir, exist_ok=True)
     logger.info("download_video called with format_id=%s, audio_only=%s", format_id, audio_only)
 
-    base_opts = {
-        "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-        "noplaylist": True,
-        "no_warnings": False,
-        "quiet": False,
-        "merge_output_format": "mp4",
-    }
-
-    # If user selected a specific format_id, use ONLY that (don't fallback)
+    # If user selected a specific format_id, use ONLY that
     if format_id:
         logger.info("User selected specific format_id=%s", format_id)
-        opts = base_opts.copy()
-        opts["format"] = format_id
-        full_opts = _base_ydl_opts(extra=opts)
+        ydl_opts = _base_ydl_opts({
+            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
+            "format": format_id,
+            "noplaylist": True,
+            "no_warnings": False,
+            "quiet": False,
+        })
         try:
             logger.info("Attempting download with format_id=%s", format_id)
-            with yt_dlp.YoutubeDL(full_opts) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get("title") or "download"
                 pattern = os.path.join(out_dir, f"{title}.*")
@@ -86,26 +90,41 @@ def download_video(url: str, out_dir="downloads", format_id: str | None = None, 
     # No format_id selected - use audio_only or fallback logic
     if audio_only:
         logger.info("Audio only mode")
-        base_opts.update({
+        ydl_opts = _base_ydl_opts({
+            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
             "format": "bestaudio/best",
+            "noplaylist": True,
+            "no_warnings": False,
+            "quiet": False,
             "postprocessors": [
                 {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}
             ]
         })
-        try_opts = base_opts
+        try_opts_list = [ydl_opts]
     else:
         logger.info("Video mode - trying best video+audio")
-        try_opts = base_opts.copy()
-        try_opts["format"] = "bestvideo[ext=mp4]+bestaudio/best"
+        video_opts = _base_ydl_opts({
+            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
+            "format": "bestvideo[ext=mp4]+bestaudio/best",
+            "noplaylist": True,
+            "no_warnings": False,
+            "quiet": False,
+            "merge_output_format": "mp4",
+        })
+        fallback_opts = _base_ydl_opts({
+            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
+            "format": "best",
+            "noplaylist": True,
+            "no_warnings": False,
+            "quiet": False,
+        })
+        try_opts_list = [video_opts, fallback_opts]
 
-    opts_sequence = (try_opts, base_opts)
     last_err = None
-
-    for opts in opts_sequence:
-        full_opts = _base_ydl_opts(extra=opts)
+    for ydl_opts in try_opts_list:
         try:
-            logger.info("Attempting download with opts format=%s", opts.get("format"))
-            with yt_dlp.YoutubeDL(full_opts) as ydl:
+            logger.info("Attempting download with format=%s", ydl_opts.get("format"))
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get("title") or "download"
                 pattern = os.path.join(out_dir, f"{title}.*")
