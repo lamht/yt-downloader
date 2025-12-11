@@ -32,7 +32,7 @@ def process_file(src_path: str, dst_dir: str) -> str:
     try:
         if ext == ".mp4":
             # MP4: extract audio, copy codec (no re-encode)
-            dst_filename = f"{name_without_ext}.m4a"
+            dst_filename = f"{name_without_ext}.aac"
             dst_path = os.path.join(dst_dir, dst_filename)
             app.logger.info("MP4 detected - extracting audio (copy codec) to %s", dst_path)
             
@@ -47,7 +47,8 @@ def process_file(src_path: str, dst_dir: str) -> str:
         
         elif ext == ".m4a":
             # M4A: copy as-is (no encode)
-            dst_path = os.path.join(dst_dir, filename)
+            dst_filename = f"{name_without_ext}.aac"
+            dst_path = os.path.join(dst_dir, dst_filename)
             app.logger.info("M4A detected - copying audio (no encode) to %s", dst_path)
             
             cmd = [
