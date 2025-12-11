@@ -28,8 +28,7 @@ def _base_ydl_opts(extra: dict | None = None):
         },
         "extractor_args": {
             "youtube": {
-                "player_client": ["web"],  # use web instead of android (no PO Token required)
-                "player_skip": ["js", "configs"],
+                "player_client": ["web"],
             }
         },
         "cookiefile": None,
