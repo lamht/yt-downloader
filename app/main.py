@@ -32,8 +32,8 @@ def _get_download(key: str) -> dict | None:
 def process_file(src_path: str, dst_dir: str) -> str:
     """
     Process file based on format:
-    - MP4: extract audio (copy codec, no encode) -> .m4a
-    - M4A: copy audio (no encode)
+    - MP4: extract audio (copy codec, no encode) -> .aac
+    - M4A: copy audio (no encode) -> aac
     - OPUS/WEBM: encode to mp3
     - Other: copy as-is
     """
