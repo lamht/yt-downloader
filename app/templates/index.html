@@ -68,7 +68,7 @@
     {% if formats %}
       <div class="panel">
         <h3 style="margin-top:0">Formats for: {{ title }}</h3>
-        <form id="downloadForm" method="POST">
+        <form id="downloadForm" method="POST" action="/">
           <input type="hidden" name="action" value="download" />
           <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
           <div style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;margin-bottom:12px">
@@ -174,10 +174,12 @@
         if(submitBtn) submitBtn.disabled = true;
 
         const formData = new FormData(downloadForm);
-        formData.set('action', 'download');
 
         try{
-          const res = await fetch(downloadForm.action || window.location.href, {method:'POST',body:formData});
+          const res = await fetch(downloadForm.action, {
+            method: 'POST',
+            body: formData
+            });
           if(res.ok){
             const data = await res.json();
             if(data.key) myDownloadKeys.add(data.key);
