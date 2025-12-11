@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YouTube Downloader</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
     :root{
       --bg:#0f1720; --card:#0b1220; --muted:#9aa4b2; --accent:#ef4444; --glass: rgba(255,255,255,0.04);
@@ -43,6 +44,14 @@
     .sticky-actions{position:fixed;bottom:0;left:0;right:0;background:rgba(11,18,32,0.95);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:12px 20px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:100}
     .sticky-actions.hidden{display:none}
     
+    /* Toast notifications */
+    .toast{position:fixed;bottom:20px;right:20px;background:rgba(11,18,32,0.95);border:1px solid;padding:16px;border-radius:8px;min-width:300px;z-index:1000}
+    .toast.success{border-color:var(--success);color:#a7f3d0}
+    .toast.error{border-color:var(--danger);color:#fca5a5}
+    .toast.info{border-color:var(--accent);color:#fca5a5}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
     @media (max-width:640px){
       .wrap{padding:12px;padding-bottom:120px}
       .sticky-actions{padding:10px}
@@ -136,5 +145,38 @@
   </div>
   {% endif %}
 
+  <script>
+    const socket = io();
+
+    socket.on("connect", () => {
+      console.log("Connected to server");
+    });
+
+    socket.on("download_status", (data) => {
+      console.log("Download status:", data);
+      showToast(data.message, "info");
+    });
+
+    socket.on("download_complete", (data) => {
+      console.log("Download complete:", data);
+      if (data.status === "success") {
+        showToast(data.message, "success");
+        // Reload page after 2s to show result
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        showToast(data.message, "error");
+      }
+    });
+
+    function showToast(message, type = "info") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+  </script>
 </body>
 </html>
