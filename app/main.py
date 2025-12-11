@@ -143,9 +143,14 @@ def index():
                         socketio.emit("download_status", {"status": "processing", "message": "Processing file..."})
                         acc_path = process_file(result.get("filepath"), "acc")
                         
+                        # Build safe download URL (serve only from allowed folders)
+                        with app.app_context():
+                            download_url = url_for('download', folder='acc', filename=os.path.basename(acc_path))
+                        
                         socketio.emit("download_complete", {
                             "status": "success",
                             "filepath": acc_path,
+                            "download_url": download_url,
                             "title": result.get("title"),
                             "message": f"Done: {result.get('title')}"
                         })
@@ -170,9 +175,16 @@ def index():
     flashed = get_flashed_messages(with_categories=True)
     return render_template("index.html", filepath=filepath, title=title, formats=formats, error=error, flashed=flashed)
 
-@app.route("/download/<path:filename>")
-def download(filename):
-    abspath = os.path.abspath(filename)
+@app.route("/download/<folder>/<path:filename>")
+def download(folder, filename):
+    # only allow serving from these folders
+    if folder not in ("acc", "downloads"):
+        return "Invalid folder", 400
+    base = os.path.abspath(folder)
+    abspath = os.path.abspath(os.path.join(folder, filename))
+    # ensure file is inside the allowed folder
+    if not abspath.startswith(base + os.sep) and abspath != base:
+        return "Forbidden", 403
     if os.path.exists(abspath):
         return send_file(abspath, as_attachment=True)
     else:
