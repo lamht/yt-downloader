@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <title>YouTube Downloader</title>
+  <head>
+    <meta charset="utf-8"/>
+    <title>YT Downloader</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
         <h2>YouTube Downloader</h2>
         <form method="POST">
@@ -12,12 +13,41 @@
             <button type="submit">Download</button>
         </form>
 
+        {% if error %}
+          <p style="color:red">{{ error }}</p>
+        {% endif %}
+
+        {% if formats %}
+          <h2>Formats for: {{ title }}</h2>
+          <form method="post">
+            <input type="hidden" name="action" value="download"/>
+            <input type="hidden" name="url" value="{{ request.form.url or '' }}"/>
+            <label><input type="checkbox" name="audio_only" value="1"/> audio only (mp3)</label>
+            <table border="1" cellpadding="4" cellspacing="0">
+              <tr>
+                <th>Select</th><th>format_id</th><th>ext</th><th>note</th><th>vcodec</th><th>acodec</th><th>res</th><th>size</th>
+              </tr>
+              {% for f in formats %}
+              <tr>
+                <td><input type="radio" name="format_id" value="{{ f.format_id }}"/></td>
+                <td>{{ f.format_id }}</td>
+                <td>{{ f.ext }}</td>
+                <td>{{ f.format_note or f.format }}</td>
+                <td>{{ f.vcodec }}</td>
+                <td>{{ f.acodec }}</td>
+                <td>{% if f.height %}{{ f.height }}x{{ f.width }}{% endif %}</td>
+                <td>{% if f.filesize %}{{ (f.filesize // 1024) }} KB{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </table>
+            <button type="submit">Download selected</button>
+          </form>
+        {% endif %}
+
         {% if filepath %}
-            <div class="success">
-                <p>Downloaded: <strong>{{ title }}</strong></p>
-                <a href="/download/{{ filepath }}" class="btn">Click to Download File</a>
-            </div>
+          <h2>Downloaded: {{ title }}</h2>
+          <p><a href="{{ url_for('download', filename=filepath) }}">Download file</a></p>
         {% endif %}
     </div>
-</body>
+  </body>
 </html>
