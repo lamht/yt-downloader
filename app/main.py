@@ -88,17 +88,17 @@ def index():
 
                 key = _new_download_key()
                 _set_download(key, {"status": "queued", "title": title or url})
-                # broadcast queued event so client creates entry
-                socketio.emit("download_started", {"key": key, "title": title or url, "message": "Queued"}, broadcast=True)
+                # emit queued event so client creates entry (no broadcast argument)
+                socketio.emit("download_started", {"key": key, "title": title or url, "message": "Queued"})
 
                 def download_bg(k=key, u=url, fmt=format_id, audio=audio_only):
                     try:
                         _set_download(k, {"status": "downloading"})
-                        socketio.emit("download_status", {"key": k, "status": "downloading", "message": "Starting download..."}, broadcast=True)
+                        socketio.emit("download_status", {"key": k, "status": "downloading", "message": "Starting download..."})
 
                         result = download_video(u, format_id=fmt, audio_only=audio)
                         _set_download(k, {"status": "downloaded", "tmp_filepath": result.get("filepath")})
-                        socketio.emit("download_status", {"key": k, "status": "downloaded", "message": "Download finished, processing..."}, broadcast=True)
+                        socketio.emit("download_status", {"key": k, "status": "downloaded", "message": "Download finished, processing..."})
 
                         acc_path = process_file(result.get("filepath"), "acc")
                         _set_download(k, {"status": "done", "filepath": acc_path})
@@ -114,46 +114,9 @@ def index():
                             "filepath": acc_path,
                             "title": result.get("title"),
                             "message": "Ready"
-                        }, broadcast=True)
+                        })
                     except Exception as e:
                         tb = traceback.format_exc()
                         app.logger.error("Background download failed: %s\n%s", e, tb)
                         _set_download(k, {"status": "error", "error": str(e)})
-                        socketio.emit("download_complete", {"key": k, "status": "error", "message": str(e)}, broadcast=True)
-
-                Thread(target=download_bg, daemon=True).start()
-                flash("Download queued", "info")
-                return redirect(request.url)
-        except Exception as e:
-            tb = traceback.format_exc()
-            app.logger.error("Exception handling request: %s\n%s", e, tb)
-            flash(str(e), "error")
-
-    flashed = get_flashed_messages(with_categories=True)
-    return render_template("index.html", filepath=filepath, title=title, formats=formats, error=error, flashed=flashed)
-
-@app.route("/download/<folder>/<path:filename>")
-def download(folder, filename):
-    if folder not in ("acc", "downloads"):
-        return "Invalid folder", 400
-    base = os.path.abspath(folder)
-    abspath = os.path.abspath(os.path.join(folder, filename))
-    if not (abspath.startswith(base + os.sep) or abspath == base):
-        return "Forbidden", 403
-    if os.path.exists(abspath):
-        return send_file(abspath, as_attachment=True)
-    return "File not found", 404
-
-@socketio.on("connect")
-def handle_connect():
-    app.logger.info("Client connected")
-
-@socketio.on("disconnect")
-def handle_disconnect():
-    app.logger.info("Client disconnected")
-
-if __name__ == "__main__":
-    os.makedirs("downloads", exist_ok=True)
-    os.makedirs("acc", exist_ok=True)
-    # allow unsafe werkzeug for dev/testing
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
+                        socketio.emit("download_complete", {"key": k, "status": "error", "message": str(e)})
