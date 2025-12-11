@@ -1,46 +1,84 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>YT Downloader</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  </head>
-  <body>
-    <div class="container">
-        <h2>YouTube Downloader</h2>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YouTube Downloader</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-        <!-- show flashed messages -->
-        {% if flashed %}
-          <ul class="flashes">
-            {% for category, msg in flashed %}
-              <li class="{{ category }}">{{ msg }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
+  <style>
+    body { font-family: system-ui, sans-serif; background:#f5f5f5; margin:0; }
+    .container { max-width:1100px; margin:20px auto; background:#fff; padding:16px; border-radius:10px; }
+    h2 { margin-top:0; text-align:center; }
 
-        <form method="POST">
-            <input type="hidden" name="action" value="inspect"/>
-            <input type="text" name="url" placeholder="Paste YouTube URL" required>
-            <button type="submit">Inspect formats</button>
-        </form>
+    /* Search form */
+    form input[type=text] { width:100%; padding:12px; border:1px solid #bbb; border-radius:6px; }
+    form button { margin-top:10px; width:100%; padding:12px; background:#e74c3c; border:0; color:white; font-weight:bold; border-radius:6px; }
 
-        {% if error %}
-          <pre style="color:red;white-space:pre-wrap">{{ error }}</pre>
-        {% endif %}
+    /* Desktop table */
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:900px; }
+    table th, table td { border:1px solid #ccc; padding:8px; }
+    table th { background:#fafafa; }
 
-        {% if formats %}
-          <h2>Formats for: {{ title }}</h2>
-          <form method="post">
-            <input type="hidden" name="action" value="download"/>
-            <input type="hidden" name="url" value="{{ request.form.url or '' }}"/>
-            <label><input type="checkbox" name="audio_only" value="1"/> audio only (mp3)</label>
-            <table border="1" cellpadding="4" cellspacing="0">
+    /* MOBILE CARD VIEW */
+    .card-list { display:none; margin-top:20px; }
+    .card { background:white; border:1px solid #ddd; padding:14px; border-radius:10px; margin-bottom:12px; }
+    .row { display:flex; justify-content:space-between; margin-bottom:6px; }
+    .label { font-size:0.9rem; color:#666; }
+    .value { font-weight:600; }
+    .fmt-radio { margin-bottom:8px; }
+
+    /* Responsive rule */
+    @media (max-width:800px) {
+      .table-wrap { display:none; }
+      .card-list { display:block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+      <h2>YouTube Downloader</h2>
+
+      {% if flashed %}
+        <ul class="flashes">
+          {% for category, msg in flashed %}
+            <li class="{{ category }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <form method="POST">
+          <input type="hidden" name="action" value="inspect" />
+          <input type="text" name="url" placeholder="Paste YouTube URL" required />
+          <button type="submit">Inspect formats</button>
+      </form>
+
+      {% if error %}
+        <pre style="color:red;white-space:pre-wrap">{{ error }}</pre>
+      {% endif %}
+
+      {% if formats %}
+
+        <h2>Formats for: {{ title }}</h2>
+
+        <form method="post">
+          <input type="hidden" name="action" value="download" />
+          <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
+
+          <label style="display:flex;align-items:center;gap:6px;margin:10px 0;">
+            <input type="checkbox" name="audio_only" value="1" /> audio only (mp3)
+          </label>
+
+          <!-- DESKTOP TABLE -->
+          <div class="table-wrap">
+            <table>
               <tr>
-                <th>Select</th><th>format_id</th><th>ext</th><th>note</th><th>vcodec</th><th>acodec</th><th>res</th><th>size</th>
+                <th>Select</th><th>ID</th><th>ext</th><th>note</th><th>vcodec</th><th>acodec</th><th>res</th><th>size</th>
               </tr>
               {% for f in formats %}
               <tr>
-                <td><input type="radio" name="format_id" value="{{ f.format_id }}"/></td>
+                <td><input type="radio" name="format_id" value="{{ f.format_id }}" /></td>
                 <td>{{ f.format_id }}</td>
                 <td>{{ f.ext }}</td>
                 <td>{{ f.format_note or f.format }}</td>
@@ -51,14 +89,37 @@
               </tr>
               {% endfor %}
             </table>
-            <button type="submit">Download selected</button>
-          </form>
-        {% endif %}
+          </div>
 
-        {% if filepath %}
-          <h2>Downloaded: {{ title }}</h2>
-          <p><a href="{{ url_for('download', filename=filepath) }}">Download file</a></p>
-        {% endif %}
-    </div>
-  </body>
+          <!-- MOBILE CARD VIEW -->
+          <div class="card-list">
+            {% for f in formats %}
+            <div class="card">
+              <div class="fmt-radio">
+                <label>
+                  <input type="radio" name="format_id" value="{{ f.format_id }}" />
+                  Select format
+                </label>
+              </div>
+              <div class="row"><div class="label">ID</div><div class="value">{{ f.format_id }}</div></div>
+              <div class="row"><div class="label">Ext</div><div class="value">{{ f.ext }}</div></div>
+              <div class="row"><div class="label">Note</div><div class="value">{{ f.format_note or f.format }}</div></div>
+              <div class="row"><div class="label">Video</div><div class="value">{{ f.vcodec }}</div></div>
+              <div class="row"><div class="label">Audio</div><div class="value">{{ f.acodec }}</div></div>
+              <div class="row"><div class="label">Res</div><div class="value">{% if f.height %}{{ f.height }}x{{ f.width }}{% endif %}</div></div>
+              <div class="row"><div class="label">Size</div><div class="value">{% if f.filesize %}{{ (f.filesize // 1024) }} KB{% endif %}</div></div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <button type="submit">Download selected</button>
+        </form>
+      {% endif %}
+
+      {% if filepath %}
+        <h2>Downloaded: {{ title }}</h2>
+        <p><a href="{{ url_for('download', filename=filepath) }}">Download file</a></p>
+      {% endif %}
+  </div>
+</body>
 </html>
