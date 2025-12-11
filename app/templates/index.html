@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>YouTube Downloader</h2>
+        <form method="POST">
+            <input type="text" name="url" placeholder="Paste YouTube URL" required>
+            <button type="submit">Download</button>
+        </form>
+
+        {% if filepath %}
+            <div class="success">
+                <p>Downloaded: <strong>{{ title }}</strong></p>
+                <a href="/download/{{ filepath }}" class="btn">Click to Download File</a>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
