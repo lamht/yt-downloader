@@ -190,4 +190,5 @@ def handle_disconnect():
 if __name__ == "__main__":
     os.makedirs("downloads", exist_ok=True)
     os.makedirs("acc", exist_ok=True)
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    # Development/testing: allow Werkzeug (not recommended for production).
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
