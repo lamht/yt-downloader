@@ -24,7 +24,7 @@
     /* input area */
     .input-row{display:flex;gap:10px}
     .input-row input[type=text]{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;font-size:1rem}
-    .input-row button{background:var(--accent);border:0;color:white;padding:12px 14px;border-radius:10px;font-weight:600}
+    .input-row button{background:var(--accent);border:0;color:white;padding:12px 14px;border-radius:10px;font-weight:600;cursor:pointer}
 
     /* thumbnail / meta */
     .meta{display:flex;gap:12px}
@@ -38,6 +38,7 @@
     .btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-weight:600;cursor:pointer}
     .btn.primary{background:var(--accent);border:none;color:white}
     .btn.ghost{background:transparent}
+    .btn:disabled{opacity:0.5;cursor:not-allowed}
 
     /* two columns below hero */
     .content{display:grid;grid-template-columns:2fr 320px;gap:18px;margin-top:18px}
@@ -62,10 +63,10 @@
     .sticky-right{display:flex;gap:8px}
 
     /* modal error */
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(rgba(2,6,23,0.6),rgba(2,6,23,0.7))}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(rgba(2,6,23,0.6),rgba(2,6,23,0.7));z-index:9999}
     .modal.open{display:flex}
-    .modal .box{background:#071227;padding:18px;border-radius:12px;max-width:720px;width:92%;color:#ffdede;border:1px solid rgba(255,0,0,0.06)}
-    .modal pre{white-space:pre-wrap;max-height:60vh;overflow:auto;margin:0;color:#ffdede}
+    .modal .box{background:#071227;padding:18px;border-radius:12px;max-width:720px;width:92%;color:#ffdede;border:1px solid rgba(255,0,0,0.06);max-height:80vh;overflow-y:auto}
+    .modal pre{white-space:pre-wrap;word-break:break-word;margin:0;color:#ffdede;font-size:0.85rem}
 
     /* loading */
     .spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,0.08);border-top-color:var(--accent);animation:spin 1s linear infinite}
@@ -103,13 +104,13 @@
           </div>
         </form>
 
-        {% if formats %}
+        {% if title and formats %}
         <div style="margin-top:14px" class="meta panel">
           <div style="display:flex;gap:12px">
             <div class="thumb">Thumbnail</div>
             <div class="info">
               <div class="title">{{ title }}</div>
-              <div class="sub">{{ uploader }} • {{ duration }}</div>
+              <div class="sub">YouTube Video</div>
               <div class="actions">
                 <button class="btn primary" onclick="document.getElementById('downloadForm').submit();return false">Download Selected</button>
                 <button class="btn ghost" id="btn-mp3">Download MP3</button>
@@ -123,7 +124,10 @@
         {% if error %}
         <div style="margin-top:12px" class="panel" role="alert">
           <strong style="color:var(--danger)">Error:</strong>
-          <pre style="color: #ffdede; white-space:pre-wrap; margin-top:8px">{{ error }}</pre>
+          <pre style="color: #ffdede; white-space:pre-wrap; margin-top:8px; max-height:200px; overflow:auto">{{ error[:500] }}</pre>
+          {% if error|length > 500 %}
+            <button class="btn" style="margin-top:8px" onclick="openModal()">View full error</button>
+          {% endif %}
         </div>
         {% endif %}
       </div>
@@ -138,7 +142,7 @@
 
         <div style="margin-top:18px">
           <div style="font-weight:700;margin-bottom:8px">Quick actions</div>
-          <button class="btn" id="clearBtn">Clear</button>
+          <button class="btn" id="clearBtn">Clear filters</button>
         </div>
       </aside>
     </div>
@@ -156,13 +160,13 @@
                 <div class="fmt-select"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %} /></div>
                 <div class="fmt-meta">
                   <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">• {{ f.format_note or f.format }}</span></div>
-                  <div class="fmt-note">{{ f.vcodec }} / {{ f.acodec }} • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio{% endif %}</div>
+                  <div class="fmt-note">{{ f.vcodec if f.vcodec != 'none' else 'audio' }} / {{ f.acodec if f.acodec != 'none' else 'no audio' }} • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio only{% endif %}</div>
                 </div>
-                <div class="fmt-size">{% if f.filesize %}{{ (f.filesize // 1024) }} KB{% endif %}</div>
+                <div class="fmt-size">{% if f.filesize %}{{ (f.filesize // (1024*1024))|round(1) }} MB{% else %}—{% endif %}</div>
               </div>
               {% endfor %}
             {% else %}
-              <div style="color:var(--muted);text-align:center;padding:20px">No formats loaded. Inspect a URL first.</div>
+              <div style="color:var(--muted);text-align:center;padding:20px">No formats loaded. Paste a YouTube URL and click Inspect.</div>
             {% endif %}
           </div>
 
@@ -171,11 +175,11 @@
 
       <aside class="panel">
         <div style="font-weight:700;margin-bottom:8px">Video info</div>
-        <div style="color:var(--muted);font-size:0.95rem">Title</div>
-        <div style="margin-top:8px">{{ title }}</div>
+        <div style="color:var(--muted);font-size:0.95rem">Title:</div>
+        <div style="margin-top:8px;word-break:break-word">{{ title or 'No video loaded' }}</div>
 
-        <div style="margin-top:12px;font-weight:700">Sizes</div>
-        <div style="color:var(--muted);margin-top:8px">Select a format and click Download</div>
+        <div style="margin-top:12px;font-weight:700">Instructions</div>
+        <div style="color:var(--muted);margin-top:8px;font-size:0.9rem">1. Paste URL and click Inspect<br>2. Select a format<br>3. Click Download</div>
       </aside>
     </div>
 
@@ -188,7 +192,7 @@
     </div>
     <div class="sticky-right">
       <button class="btn" id="clearSel">Clear</button>
-      <button class="btn primary" onclick="document.getElementById('downloadForm').submit();">Download</button>
+      <button class="btn primary" id="submitBtn" onclick="document.getElementById('downloadForm').submit();">Download</button>
     </div>
   </div>
 
@@ -199,7 +203,7 @@
         <strong style="color:var(--danger)">Error details</strong>
         <button class="btn" onclick="closeModal()">Close</button>
       </div>
-      <pre id="modalContent">{{ error or '' }}</pre>
+      <pre id="modalContent">{{ error or 'No error message' }}</pre>
     </div>
   </div>
 
@@ -209,6 +213,7 @@
     const stickyBar = document.getElementById('stickyBar');
     const stickyText = document.getElementById('stickyText');
     const spinner = document.getElementById('stickySpinner');
+    const submitBtn = document.getElementById('submitBtn');
 
     function updateSticky(){
       const checked = document.querySelector('input[name="format_id"]:checked');
@@ -218,50 +223,95 @@
         const size = row.querySelector('.fmt-size').textContent.trim();
         stickyText.textContent = id + ' • ' + size;
         stickyBar.style.display = 'flex';
+        submitBtn.disabled = false;
       } else {
         stickyBar.style.display = 'none';
       }
     }
 
-    formatsEl?.addEventListener('change', (e)=>updateSticky());
+    if(formatsEl){
+      formatsEl.addEventListener('change', (e)=>updateSticky());
+    }
+
     document.addEventListener('DOMContentLoaded', ()=> {
       updateSticky();
     });
 
     // modal
     function closeModal(){ document.getElementById('modalError').classList.remove('open'); }
-    function openModal(text){ document.getElementById('modalContent').textContent = text; document.getElementById('modalError').classList.add('open'); }
+    function openModal(){ document.getElementById('modalError').classList.add('open'); }
 
     // wire error modal if server returned long error
-    const serverError = `{{ error|replace('\n','\\n') }}`;
-    if(serverError && serverError.trim().length>0){ openModal(serverError); }
+    const serverError = `{{ error|replace('\n','\\n')|replace('"', '\\"') }}`;
+    if(serverError && serverError.trim().length > 200){ 
+      // auto-open modal if error is too long
+      setTimeout(()=>openModal(), 300);
+    }
 
     // filters
     document.getElementById('f-audio')?.addEventListener('change', (e)=>{
       document.querySelectorAll('.fmt-row').forEach(r=>{
-        const ext = r.dataset.ext||''; if(e.target.checked){ r.style.display = ext==='m4a' || ext==='webm' || ext==='mp3' ? 'flex' : 'none'; } else r.style.display='flex';
-      }); updateSticky();
+        const ext = r.dataset.ext||''; 
+        if(e.target.checked){ 
+          r.style.display = ext==='m4a' || ext==='webm' || ext==='mp3' || ext==='opus' || ext==='vorbis' ? 'flex' : 'none'; 
+        } else r.style.display='flex';
+      }); 
+      updateSticky();
     });
 
     document.getElementById('f-1080')?.addEventListener('change', (e)=>{
       document.querySelectorAll('.fmt-row').forEach(r=>{
-        const res = parseInt(r.dataset.res||0,10); if(e.target.checked){ r.style.display = res>=1080 ? 'flex' : 'none'; } else r.style.display='flex';
-      }); updateSticky();
+        const res = parseInt(r.dataset.res||0,10); 
+        if(e.target.checked){ 
+          r.style.display = res>=1080 ? 'flex' : 'none'; 
+        } else r.style.display='flex';
+      }); 
+      updateSticky();
     });
 
-    document.getElementById('clearBtn')?.addEventListener('click', ()=>{ document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false); document.querySelectorAll('.fmt-row').forEach(r=>r.style.display='flex'); updateSticky(); });
+    document.getElementById('f-720')?.addEventListener('change', (e)=>{
+      document.querySelectorAll('.fmt-row').forEach(r=>{
+        const res = parseInt(r.dataset.res||0,10); 
+        if(e.target.checked){ 
+          r.style.display = res>=720 ? 'flex' : 'none'; 
+        } else r.style.display='flex';
+      }); 
+      updateSticky();
+    });
 
-    // quick actions (these will submit form with specific inputs — you can handle on server side)
+    document.getElementById('clearBtn')?.addEventListener('click', ()=>{ 
+      document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false); 
+      document.querySelectorAll('.fmt-row').forEach(r=>r.style.display='flex'); 
+      updateSticky(); 
+    });
+
+    document.getElementById('clearSel')?.addEventListener('click', ()=>{
+      document.querySelector('input[name="format_id"]').checked = true;
+      updateSticky();
+    });
+
+    // quick actions
     document.getElementById('btn-mp3')?.addEventListener('click', (e)=>{
       e.preventDefault();
-      // set audio_only and submit
       const form = document.getElementById('downloadForm');
       let el = document.querySelector('input[name="audio_only"]');
       if(!el){ el = document.createElement('input'); el.type='hidden'; el.name='audio_only'; el.value='1'; form.appendChild(el); }
+      submitBtn.disabled = true;
+      spinner.style.display = 'inline-block';
       form.submit();
     });
 
-    document.getElementById('btn-best')?.addEventListener('click',(e)=>{ e.preventDefault(); const form = document.getElementById('downloadForm'); let el = document.querySelector('input[name="best"]'); if(!el){ el = document.createElement('input'); el.type='hidden'; el.name='best'; el.value='1'; form.appendChild(el); } form.submit(); });
+    document.getElementById('btn-best')?.addEventListener('click',(e)=>{ 
+      e.preventDefault(); 
+      const form = document.getElementById('downloadForm'); 
+      // uncheck all formats and remove audio_only
+      document.querySelectorAll('input[name="format_id"]').forEach(i=>i.checked=false);
+      let el = document.querySelector('input[name="audio_only"]');
+      if(el) el.remove();
+      submitBtn.disabled = true;
+      spinner.style.display = 'inline-block';
+      form.submit(); 
+    });
 
   </script>
 </body>
