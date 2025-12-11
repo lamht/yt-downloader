@@ -10,7 +10,7 @@
       --success: #10b981; --danger:#ef4444; --radius:12px; --maxw:1100px;
     }
     html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:linear-gradient(180deg,#071023 0%, #071728 60%);color:#e6eef6}
-    .wrap{max-width:var(--maxw);margin:28px auto;padding:20px}
+    .wrap{max-width:var(--maxw);margin:28px auto;padding:20px;padding-bottom:100px}
     header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
     header h1{font-size:1.45rem;margin:0}
     header p{margin:0;color:var(--muted);font-size:0.95rem}
@@ -21,7 +21,8 @@
     .btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-weight:600;cursor:pointer}
     .btn.primary{background:var(--accent);border:none;color:white}
     .btn.success{background:var(--success);border:none;color:white}
-    .fmt-row{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.03)}
+    .fmt-row{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+    .fmt-row:hover{background:linear-gradient(180deg,rgba(255,255,255,0.04),transparent)}
     .fmt-select{width:36px}
     .fmt-meta{flex:1;display:flex;flex-direction:column}
     .fmt-title{display:flex;align-items:center;gap:10px;font-weight:700}
@@ -36,8 +37,15 @@
     .download-result p{margin:8px 0;color:var(--muted)}
     .download-result a{color:var(--accent);text-decoration:none;font-weight:600}
     .download-result a:hover{text-decoration:underline}
+    .download-result code{background:rgba(0,0,0,0.3);padding:4px 8px;border-radius:4px;font-family:monospace;font-size:0.9rem}
+    
+    /* sticky bottom bar */
+    .sticky-actions{position:fixed;bottom:0;left:0;right:0;background:rgba(11,18,32,0.95);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:12px 20px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:100}
+    .sticky-actions.hidden{display:none}
+    
     @media (max-width:640px){
-      .wrap{padding:12px}
+      .wrap{padding:12px;padding-bottom:120px}
+      .sticky-actions{padding:10px}
       .input-row{flex-direction:column}
     }
   </style>
@@ -96,9 +104,9 @@
           <input type="hidden" name="action" value="download" />
           <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
 
-          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;max-height:400px;overflow-y:auto">
             {% for f in formats %}
-              <label class="fmt-row" style="cursor:pointer">
+              <label class="fmt-row">
                 <div class="fmt-select"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %} /></div>
                 <div class="fmt-meta">
                   <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">{{ f.format_note or f.format }}</span></div>
@@ -109,16 +117,24 @@
             {% endfor %}
           </div>
 
-          <div style="display:flex;gap:8px">
-            <button type="submit" class="btn primary">Download Selected</button>
-            <label style="display:flex;align-items:center;gap:8px;color:var(--muted)">
-              <input type="checkbox" name="audio_only" value="1" /> MP3 only
-            </label>
-          </div>
         </form>
       </div>
     {% endif %}
 
   </div>
+
+  <!-- Sticky Bottom Action Bar -->
+  {% if formats %}
+  <div class="sticky-actions" id="stickyBar">
+    <label style="display:flex;align-items:center;gap:8px;color:var(--muted)">
+      <input type="checkbox" form="downloadForm" name="audio_only" value="1" id="audioOnlyCheck" />
+      MP3 only
+    </label>
+    <button type="submit" form="downloadForm" class="btn primary" style="margin-left:auto">
+      Download Selected
+    </button>
+  </div>
+  {% endif %}
+
 </body>
 </html>
