@@ -8,6 +8,7 @@ import subprocess
 import uuid
 from threading import Thread, Lock
 from urllib.parse import quote
+from flask import jsonify
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
@@ -88,8 +89,9 @@ def index():
 
                 key = _new_download_key()
                 _set_download(key, {"status": "queued", "title": title or url})
-                # emit queued event so client creates entry (no broadcast argument)
-                socketio.emit("download_started", {"key": key, "title": title or url, "message": "Queued"})
+                
+                client_sid = request.sid
+                socketio.emit("download_started", {"key": key, "title": title or url, "message": "Queued"}, to=client_sid)
 
                 def download_bg(k=key, u=url, fmt=format_id, audio=audio_only):
                     try:
@@ -120,3 +122,16 @@ def index():
                         app.logger.error("Background download failed: %s\n%s", e, tb)
                         _set_download(k, {"status": "error", "error": str(e)})
                         socketio.emit("download_complete", {"key": k, "status": "error", "message": str(e)})
+                # start download in background thread
+                Thread(target=download_bg, daemon=True).start()
+
+                # Return JSON response with the key so client knows which key to track
+                return jsonify({"status": "queued", "key": key})
+        except Exception as e:
+            app.logger.error("Error processing request: %s", e)
+            error = str(e)
+            flash(error, "error")
+            return redirect(request.url)
+
+    flashed = get_flashed_messages(with_categories=True)
+    return render_template("index.html", filepath=filepath, title=title, formats=formats, error=error, flashed=flashed)

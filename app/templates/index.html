@@ -90,6 +90,7 @@
   <script>
     const socket = io();
     const downloadsMap = {}; // key -> DOM element
+    const myDownloadKeys = new Set(); 
 
     function createRow(key, title){
       const row = document.createElement('div');
@@ -110,33 +111,53 @@
     socket.on('download_started', (data) => {
       const key = data.key;
       const title = data.title || 'download';
+      // register this key as belonging to this client
+      myDownloadKeys.add(key);
       if(!downloadsMap[key]) createRow(key, title);
       setStatus(key, data.message || 'Queued');
     });
 
     socket.on('download_status', (data) => {
       if(!data || !data.key) return;
+      // only process if key is mine
+      if (!myDownloadKeys.has(data.key)) {
+        console.debug('Ignoring download_status for key:', data.key);
+        return;
+      }
       const msg = data.message || data.status || '...';
       if(!downloadsMap[data.key]) createRow(data.key, data.title || 'download');
       setStatus(data.key, msg);
     });
 
     socket.on('download_complete', (data) => {
+      console.log('download_complete RAW:', data);  // <-- add this debug line
       console.log('download_complete', data);
-      if(!data || !data.key) return;
+      if(!data || !data.key) {
+        console.warn('No data or key in download_complete');
+        return;
+      }
+      // only process if key is mine
+      if (!myDownloadKeys.has(data.key)) {
+        console.debug('Ignoring download_complete for key:', data.key, 'my keys:', Array.from(myDownloadKeys));
+        return;
+      }
       const key = data.key;
       if(!downloadsMap[key]) createRow(key, data.title || 'download');
 
       // normalize relative url
       let downloadUrl = null;
       if (data.download_url) {
+        console.log('Found download_url:', data.download_url);  // <-- add this
         if (/^https?:\/\//.test(data.download_url)) downloadUrl = data.download_url;
         else downloadUrl = window.location.origin + data.download_url;
+      } else {
+        console.warn('No download_url in data');  // <-- add this
       }
 
       if(data.status === 'success' && downloadUrl){
         const fname = decodeURIComponent(downloadUrl.split('/').pop());
         const link = `<a class="dl-link" href="${downloadUrl}" download="${fname}">⬇ Download</a>`;
+        console.log('Setting link:', link);  // <-- add this
         setStatus(key, link);
       } else if(data.status === 'error'){
         setStatus(key, `Error: ${data.message || 'failed'}`);
@@ -154,8 +175,12 @@
       document.body.appendChild(t);
       setTimeout(()=> t.remove(), timeout);
     }
-    socket.on('download_status', d => { if(d && d.message) showToast(d.message,2000); });
-    socket.on('download_complete', d => { if(d && d.status==='success') showToast(d.message||'Ready',2500); else if(d && d.status==='error') showToast(d.message||'Error',5000); });
+    socket.on('download_status', d => { if(d && d.message && myDownloadKeys.has(d.key)) showToast(d.message,2000); });
+    socket.on('download_complete', d => { 
+      if(!d || !d.key || !myDownloadKeys.has(d.key)) return;
+      if(d.status==='success') showToast(d.message||'Ready',2500); 
+      else if(d.status==='error') showToast(d.message||'Error',5000); 
+    });
 
     // auto-submit download form from sticky area if you add one; otherwise user clicks Inspect -> select -> submit via form
     // ensure the download form is submitted when user presses Ctrl+Enter in the URL input
@@ -186,9 +211,15 @@
                   body: formData,
                   credentials: 'same-origin'
               });
+              
               if (!res.ok) {
                   showToast('Failed to queue download', 4000);
               } else {
+                  const data = await res.json();
+                  if (data.key) {
+                      myDownloadKeys.add(data.key);  // Track this key
+                      console.log('Download key:', data.key);
+                  }
                   showToast('Download queued', 2000);
               }
           } catch (err) {
