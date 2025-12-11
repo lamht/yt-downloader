@@ -10,30 +10,66 @@
     html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#071022;color:#e6eef6}
     .wrap{max-width:1100px;margin:28px auto;padding:20px}
     .panel{background:#071427;padding:18px;border-radius:12px}
+    .input-row{display:flex;gap:10px}
+    .input-row input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .input-row button{padding:10px 12px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer}
     /* downloads list */
     #downloadList{position:fixed;left:18px;bottom:18px;z-index:1200;display:flex;flex-direction:column;gap:10px}
-    .dl-row{background:rgba(11,18,32,0.95);padding:10px;border-radius:8px;min-width:280px}
+    .dl-row{background:rgba(11,18,32,0.95);padding:10px;border-radius:8px;min-width:300px}
     .dl-title{font-weight:700}
     .dl-status{color:var(--muted);margin-top:6px}
     a.dl-link{color:#7dd3fc;font-weight:700;text-decoration:none}
+    /* formats area */
+    .fmt-row{display:flex;gap:12px;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);border:1px solid rgba(255,255,255,0.02)}
+    .fmt-meta{flex:1}
+    .sticky-actions{position:fixed;bottom:0;left:0;right:0;background:rgba(11,18,32,0.95);padding:12px 20px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:100}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="panel">
+    <div class="panel" style="margin-bottom:16px">
       <h1 style="margin:0 0 8px">YouTube Downloader</h1>
-      <p style="margin:0;color:var(--muted)">Use the form to inspect and queue downloads.</p>
-      <!-- keep your existing server-rendered content if any -->
+      <form id="inspectForm" method="POST" style="margin-bottom:8px">
+        <input type="hidden" name="action" value="inspect"/>
+        <div class="input-row">
+          <input type="text" name="url" placeholder="Paste YouTube URL" required value="{{ request.form.url or '' }}" />
+          <button type="submit">Inspect</button>
+        </div>
+      </form>
+
       {% if flashed %}
         {% for category, msg in flashed %}
           <div style="margin-top:8px;color:var(--muted)">{{ msg }}</div>
         {% endfor %}
       {% endif %}
-      {% if formats %}
-        <!-- existing formats UI rendered by server -->
-        {{ caller() if caller is defined }}
-      {% endif %}
     </div>
+
+    {% if formats %}
+      <div class="panel">
+        <h3 style="margin-top:0">Formats for: {{ title }}</h3>
+        <form id="downloadForm" method="POST">
+          <input type="hidden" name="action" value="download" />
+          <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;margin-bottom:12px">
+            {% for f in formats %}
+              <label class="fmt-row">
+                <div style="width:36px"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %}/></div>
+                <div class="fmt-meta">
+                  <div style="font-weight:700">{{ f.format_id }} <span style="color:var(--muted);font-weight:400">{{ f.format_note or f.format }}</span></div>
+                  <div style="color:var(--muted);font-size:0.9rem">
+                    {{ f.vcodec if f.vcodec != 'none' else 'audio' }} / {{ f.acodec if f.acodec != 'none' else 'no audio' }}
+                    • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio only{% endif %}
+                  </div>
+                </div>
+                <div style="min-width:80px;text-align:right;color:var(--muted)">
+                  {% if f.filesize %}{{ (f.filesize // (1024*1024))|round(1) }} MB{% else %}—{% endif %}
+                </div>
+              </label>
+            {% endfor %}
+          </div>
+        </form>
+      </div>
+    {% endif %}
   </div>
 
   <!-- container for live download entries -->
@@ -41,27 +77,24 @@
 
   <script>
     const socket = io();
-
     const downloadsMap = {}; // key -> DOM element
 
     function createRow(key, title){
       const row = document.createElement('div');
       row.className = 'dl-row';
       row.id = `dl-${key}`;
-      row.innerHTML = `
-        <div class="dl-title">${title}</div>
-        <div id="dl-${key}-status" class="dl-status">Queued</div>
-      `;
+      row.innerHTML = `<div class="dl-title">${title}</div><div id="dl-${key}-status" class="dl-status">Queued</div>`;
       document.getElementById('downloadList').appendChild(row);
       downloadsMap[key] = row;
     }
 
-    function setStatus(key, text){
+    function setStatus(key, html){
       const el = document.getElementById(`dl-${key}-status`);
-      if(el) el.innerHTML = text;
+      if(el) el.innerHTML = html;
     }
 
     socket.on('connect', () => console.debug('socket connected'));
+
     socket.on('download_started', (data) => {
       const key = data.key;
       const title = data.title || 'download';
@@ -77,26 +110,19 @@
     });
 
     socket.on('download_complete', (data) => {
-      console.log('download_complete', data); // debug: inspect payload in browser console
-
+      console.log('download_complete', data);
       if(!data || !data.key) return;
       const key = data.key;
-      if(!downloadsMap[key]){
-        createRow(key, data.title || 'download');
-      }
+      if(!downloadsMap[key]) createRow(key, data.title || 'download');
 
-      // normalize download_url: make absolute if server sent relative path
+      // normalize relative url
       let downloadUrl = null;
       if (data.download_url) {
-        if (data.download_url.startsWith('http://') || data.download_url.startsWith('https://')) {
-          downloadUrl = data.download_url;
-        } else {
-          downloadUrl = window.location.origin + data.download_url;
-        }
+        if (/^https?:\/\//.test(data.download_url)) downloadUrl = data.download_url;
+        else downloadUrl = window.location.origin + data.download_url;
       }
 
       if(data.status === 'success' && downloadUrl){
-        // ensure filename looks safe in the link text
         const fname = decodeURIComponent(downloadUrl.split('/').pop());
         const link = `<a class="dl-link" href="${downloadUrl}" download="${fname}">⬇ Download</a>`;
         setStatus(key, link);
@@ -107,7 +133,7 @@
       }
     });
 
-    // optional toast helper (small, unobtrusive)
+    // small toast notifications
     function showToast(msg, timeout=3500){
       const t = document.createElement('div');
       t.style.position='fixed'; t.style.right='18px'; t.style.top='18px';
@@ -116,10 +142,19 @@
       document.body.appendChild(t);
       setTimeout(()=> t.remove(), timeout);
     }
+    socket.on('download_status', d => { if(d && d.message) showToast(d.message,2000); });
+    socket.on('download_complete', d => { if(d && d.status==='success') showToast(d.message||'Ready',2500); else if(d && d.status==='error') showToast(d.message||'Error',5000); });
 
-    // receive generic status messages
-    socket.on('download_status', d => { if(d && d.message) showToast(d.message, 2000); });
-    socket.on('download_complete', d => { if(d && d.status==='success') showToast(d.message || 'Ready', 2500); else if(d && d.status==='error') showToast(d.message || 'Error', 5000); });
+    // auto-submit download form from sticky area if you add one; otherwise user clicks Inspect -> select -> submit via form
+    // ensure the download form is submitted when user presses Ctrl+Enter in the URL input
+    const urlInput = document.querySelector('input[name="url"]');
+    if(urlInput){
+      urlInput.addEventListener('keydown', (e) => {
+        if(e.ctrlKey && e.key === 'Enter'){
+          document.getElementById('inspectForm').submit();
+        }
+      });
+    }
   </script>
 </body>
 </html>
