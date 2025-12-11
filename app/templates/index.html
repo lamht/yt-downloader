@@ -6,228 +6,120 @@
   <title>YouTube Downloader</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
-    :root{
-      --bg:#0f1720; --card:#0b1220; --muted:#9aa4b2; --accent:#ef4444; --glass: rgba(255,255,255,0.04);
-      --success: #10b981; --danger:#ef4444; --radius:12px; --maxw:1100px;
-    }
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:linear-gradient(180deg,#071023 0%, #071728 60%);color:#e6eef6}
-    .wrap{max-width:var(--maxw);margin:28px auto;padding:20px;padding-bottom:100px}
-    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
-    header h1{font-size:1.45rem;margin:0}
-    header p{margin:0;color:var(--muted);font-size:0.95rem}
-    .panel{background:var(--card);padding:18px;border-radius:var(--radius);box-shadow:0 6px 30px rgba(2,6,23,0.6)}
-    .input-row{display:flex;gap:10px}
-    .input-row input[type=text]{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;font-size:1rem}
-    .input-row button{background:var(--accent);border:0;color:white;padding:12px 14px;border-radius:10px;font-weight:600;cursor:pointer}
-    .btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-weight:600;cursor:pointer}
-    .btn.primary{background:var(--accent);border:none;color:white}
-    .btn.success{background:var(--success);border:none;color:white}
-    .fmt-row{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.03);cursor:pointer}
-    .fmt-row:hover{background:linear-gradient(180deg,rgba(255,255,255,0.04),transparent)}
-    .fmt-select{width:36px}
-    .fmt-meta{flex:1;display:flex;flex-direction:column}
-    .fmt-title{display:flex;align-items:center;gap:10px;font-weight:700}
-    .fmt-note{color:var(--muted);font-size:0.9rem}
-    .fmt-size{min-width:88px;text-align:right;color:var(--muted)}
-    .alert{padding:12px;border-radius:10px;margin-top:12px}
-    .alert.success{background:rgba(16,185,129,0.1);border:1px solid var(--success);color:#a7f3d0}
-    .alert.error{background:rgba(239,68,68,0.1);border:1px solid var(--danger);color:#fca5a5}
-    .alert.error pre{white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;font-size:0.85rem;margin:8px 0 0}
-    .download-result{padding:16px;border-radius:10px;background:linear-gradient(90deg,rgba(16,185,129,0.1),transparent);border:1px solid var(--success);margin-top:18px}
-    .download-result h3{margin:0 0 8px;color:var(--success)}
-    .download-result p{margin:8px 0;color:var(--muted)}
-    .download-result a{color:var(--accent);text-decoration:none;font-weight:600}
-    .download-result a:hover{text-decoration:underline}
-    .download-result code{background:rgba(0,0,0,0.3);padding:4px 8px;border-radius:4px;font-family:monospace;font-size:0.9rem}
-    
-    /* sticky bottom bar */
-    .sticky-actions{position:fixed;bottom:0;left:0;right:0;background:rgba(11,18,32,0.95);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:12px 20px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:100}
-    .sticky-actions.hidden{display:none}
-    
-    /* Toast notifications */
-    .toast{position:fixed;bottom:20px;right:20px;background:rgba(11,18,32,0.95);border:1px solid;padding:16px;border-radius:8px;min-width:300px;z-index:1000}
-    .toast.success{border-color:var(--success);color:#a7f3d0}
-    .toast.error{border-color:var(--danger);color:#fca5a5}
-    .toast.info{border-color:var(--accent);color:#fca5a5}
-    .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    @media (max-width:640px){
-      .wrap{padding:12px;padding-bottom:120px}
-      .sticky-actions{padding:10px}
-      .input-row{flex-direction:column}
-    }
+    :root{--muted:#9aa4b2;--accent:#ef4444;--success:#10b981}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#071022;color:#e6eef6}
+    .wrap{max-width:1100px;margin:28px auto;padding:20px}
+    .panel{background:#071427;padding:18px;border-radius:12px}
+    /* downloads list */
+    #downloadList{position:fixed;left:18px;bottom:18px;z-index:1200;display:flex;flex-direction:column;gap:10px}
+    .dl-row{background:rgba(11,18,32,0.95);padding:10px;border-radius:8px;min-width:280px}
+    .dl-title{font-weight:700}
+    .dl-status{color:var(--muted);margin-top:6px}
+    a.dl-link{color:#7dd3fc;font-weight:700;text-decoration:none}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <div>
-        <h1>YouTube Downloader</h1>
-        <p>Paste URL → Inspect → Download</p>
-      </div>
-    </header>
-
-    <!-- Alerts -->
-    {% if flashed %}
-      {% for category, msg in flashed %}
-        <div class="alert {{ category }}">{{ msg }}</div>
-      {% endfor %}
-    {% endif %}
-
-    {% if error %}
-      <div class="alert error">
-        <strong>Error:</strong>
-        <pre>{{ error[:500] }}{% if error|length > 500 %}...[truncated]{% endif %}</pre>
-      </div>
-    {% endif %}
-
-    <!-- Download Result -->
-    {% if filepath and title %}
-      <div class="download-result">
-        <h3>✓ Download Complete!</h3>
-        <p><strong>{{ title }}</strong></p>
-        <p>File: <code>{{ filepath }}</code></p>
-        <a href="{{ url_for('download', filename=filepath) }}" class="btn success" download>
-          ⬇ Download File
-        </a>
-      </div>
-    {% endif %}
-
-    <!-- Input Form -->
-    <div class="panel" style="margin-top:18px">
-      <form method="POST">
-        <input type="hidden" name="action" value="inspect" />
-        <div class="input-row">
-          <input type="text" name="url" placeholder="Paste YouTube URL" required value="{{ request.form.url or '' }}" />
-          <button type="submit">Inspect</button>
-        </div>
-      </form>
+    <div class="panel">
+      <h1 style="margin:0 0 8px">YouTube Downloader</h1>
+      <p style="margin:0;color:var(--muted)">Use the form to inspect and queue downloads.</p>
+      <!-- keep your existing server-rendered content if any -->
+      {% if flashed %}
+        {% for category, msg in flashed %}
+          <div style="margin-top:8px;color:var(--muted)">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+      {% if formats %}
+        <!-- existing formats UI rendered by server -->
+        {{ caller() if caller is defined }}
+      {% endif %}
     </div>
-
-    <!-- Formats List -->
-    {% if formats %}
-      <div class="panel" style="margin-top:18px">
-        <h3 style="margin-top:0">Formats for: {{ title }}</h3>
-        <form id="downloadForm" method="POST">
-          <input type="hidden" name="action" value="download" />
-          <input type="hidden" name="url" value="{{ request.form.url or '' }}" />
-
-          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;max-height:400px;overflow-y:auto">
-            {% for f in formats %}
-              <label class="fmt-row">
-                <div class="fmt-select"><input type="radio" name="format_id" value="{{ f.format_id }}" {% if loop.first %}checked{% endif %} /></div>
-                <div class="fmt-meta">
-                  <div class="fmt-title">{{ f.format_id }} <span class="fmt-note">{{ f.format_note or f.format }}</span></div>
-                  <div class="fmt-note">{{ f.vcodec if f.vcodec != 'none' else 'audio' }} / {{ f.acodec if f.acodec != 'none' else 'no audio' }} • {% if f.height %}{{ f.height }}x{{ f.width }}{% else %}audio only{% endif %}</div>
-                </div>
-                <div class="fmt-size">{% if f.filesize %}{{ (f.filesize // (1024*1024))|round(1) }} MB{% else %}—{% endif %}</div>
-              </label>
-            {% endfor %}
-          </div>
-
-        </form>
-      </div>
-    {% endif %}
-
   </div>
 
-  <!-- Sticky Bottom Action Bar -->
-  {% if formats %}
-  <div class="sticky-actions" id="stickyBar">
-    <label style="display:flex;align-items:center;gap:8px;color:var(--muted)">
-      <input type="checkbox" form="downloadForm" name="audio_only" value="1" id="audioOnlyCheck" />
-      MP3 only
-    </label>
-    <button type="submit" form="downloadForm" class="btn primary" style="margin-left:auto">
-      Download Selected
-    </button>
-  </div>
-  {% endif %}
+  <!-- container for live download entries -->
+  <div id="downloadList" aria-live="polite"></div>
 
   <script>
     const socket = io();
-    const downloadsMap = {}; // local map of key -> DOM row
 
-    socket.on("connect", () => {
-      console.log("Connected to server");
-    });
+    const downloadsMap = {}; // key -> DOM element
 
-    socket.on("download_started", (data) => {
+    function createRow(key, title){
+      const row = document.createElement('div');
+      row.className = 'dl-row';
+      row.id = `dl-${key}`;
+      row.innerHTML = `
+        <div class="dl-title">${title}</div>
+        <div id="dl-${key}-status" class="dl-status">Queued</div>
+      `;
+      document.getElementById('downloadList').appendChild(row);
+      downloadsMap[key] = row;
+    }
+
+    function setStatus(key, text){
+      const el = document.getElementById(`dl-${key}-status`);
+      if(el) el.innerHTML = text;
+    }
+
+    socket.on('connect', () => console.debug('socket connected'));
+    socket.on('download_started', (data) => {
       const key = data.key;
       const title = data.title || 'download';
-      // create UI entry for this key
-      const containerId = 'downloadList';
-      let container = document.getElementById(containerId);
-      if (!container) {
-        container = document.createElement('div');
-        container.id = containerId;
-        container.style.position = 'fixed';
-        container.style.left = '18px';
-        container.style.bottom = '18px';
-        container.style.zIndex = 1200;
-        document.body.appendChild(container);
-      }
-      const row = document.createElement('div');
-      row.id = `dl-${key}`;
-      row.style.marginBottom = '8px';
-      row.style.background = 'rgba(7,18,39,0.9)';
-      row.style.padding = '10px';
-      row.style.borderRadius = '8px';
-      row.style.color = '#e6eef6';
-      row.innerHTML = `<div style="font-weight:700">${title}</div><div id="dl-${key}-status" style="color:var(--muted)">Queued</div>`;
-      container.appendChild(row);
-      downloadsMap[key] = row;
+      if(!downloadsMap[key]) createRow(key, title);
+      setStatus(key, data.message || 'Queued');
     });
 
-    socket.on("download_status", (data) => {
-      const key = data.key;
-      const row = downloadsMap[key];
-      if (row) {
-        const statusEl = document.getElementById(`dl-${key}-status`);
-        if (statusEl) statusEl.textContent = data.message || data.status || '';
-      } else {
-        console.log("status for unknown key", data);
-      }
+    socket.on('download_status', (data) => {
+      if(!data || !data.key) return;
+      const msg = data.message || data.status || '...';
+      if(!downloadsMap[data.key]) createRow(data.key, data.title || 'download');
+      setStatus(data.key, msg);
     });
 
-    socket.on("download_complete", (data) => {
+    socket.on('download_complete', (data) => {
+      console.log('download_complete', data); // debug: inspect payload in browser console
+
+      if(!data || !data.key) return;
       const key = data.key;
-      const row = downloadsMap[key];
-      if (row) {
-        const statusEl = document.getElementById(`dl-${key}-status`);
-        if (data.status === "success" && data.download_url) {
-          statusEl.innerHTML = `<a href="${data.download_url}" style="color:#7dd3fc;font-weight:700" download>⬇ Download</a>`;
-        } else if (data.status === "error") {
-          statusEl.textContent = `Error: ${data.message || 'failed'}`;
+      if(!downloadsMap[key]){
+        createRow(key, data.title || 'download');
+      }
+
+      // normalize download_url: make absolute if server sent relative path
+      let downloadUrl = null;
+      if (data.download_url) {
+        if (data.download_url.startsWith('http://') || data.download_url.startsWith('https://')) {
+          downloadUrl = data.download_url;
         } else {
-          statusEl.textContent = data.message || data.status || 'done';
+          downloadUrl = window.location.origin + data.download_url;
         }
+      }
+
+      if(data.status === 'success' && downloadUrl){
+        // ensure filename looks safe in the link text
+        const fname = decodeURIComponent(downloadUrl.split('/').pop());
+        const link = `<a class="dl-link" href="${downloadUrl}" download="${fname}">⬇ Download</a>`;
+        setStatus(key, link);
+      } else if(data.status === 'error'){
+        setStatus(key, `Error: ${data.message || 'failed'}`);
       } else {
-        // fallback toast
-        showToast(data.message || 'Download complete', data.status === 'success' ? 'success' : 'error');
+        setStatus(key, data.message || data.status || 'Done');
       }
     });
 
-    // keep existing handlers for toasts from previous code
-    socket.on("download_status", (data) => {
-      if (data && data.message) showToast(data.message, "info");
-    });
-
-    socket.on("download_complete", (data) => {
-      if (data && data.message) {
-        if (data.status === "success") showToast(data.message, "success");
-        else if (data.status === "error") showToast(data.message, "error");
-      }
-    });
-
-    function showToast(message, type = "info") {
-      const toast = document.createElement("div");
-      toast.className = `toast ${type}`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 4000);
+    // optional toast helper (small, unobtrusive)
+    function showToast(msg, timeout=3500){
+      const t = document.createElement('div');
+      t.style.position='fixed'; t.style.right='18px'; t.style.top='18px';
+      t.style.background='rgba(7,18,39,0.95)'; t.style.color='#e6eef6'; t.style.padding='10px';
+      t.style.borderRadius='8px'; t.style.zIndex=2000; t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(()=> t.remove(), timeout);
     }
+
+    // receive generic status messages
+    socket.on('download_status', d => { if(d && d.message) showToast(d.message, 2000); });
+    socket.on('download_complete', d => { if(d && d.status==='success') showToast(d.message || 'Ready', 2500); else if(d && d.status==='error') showToast(d.message || 'Error', 5000); });
   </script>
 </body>
 </html>

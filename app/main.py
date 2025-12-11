@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash, get_flashed_messages
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, request, send_file, redirect, flash, get_flashed_messages
+from flask_socketio import SocketIO
 from downloader import download_video, get_video_info
 import os
 import logging
@@ -32,46 +32,36 @@ def _get_download(key: str) -> dict | None:
 
 def process_file(src_path: str, dst_dir: str) -> str:
     """
-    Process file based on format:
-    - MP4: extract audio (copy codec, no encode) -> .aac
-    - M4A: copy audio (no encode) -> aac
-    - OPUS/WEBM: encode to mp3
-    - Other: copy as-is
+    Process file based on extension:
+    - .mp4 -> extract audio (copy codec) -> .m4a
+    - .m4a -> copy as-is
+    - .opus/.webm -> encode to .mp3
+    - other -> copy as-is
     """
     os.makedirs(dst_dir, exist_ok=True)
-    
     filename = os.path.basename(src_path)
-    name_without_ext = os.path.splitext(filename)[0]
-    ext = os.path.splitext(filename)[1].lower()
-    
-    app.logger.info("Processing %s (ext: %s)", filename, ext)
-    
-    try:
-        if ext == ".mp4":
-            dst_filename = f"{name_without_ext}.m4a"
-            dst_path = os.path.join(dst_dir, dst_filename)
-            cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst_path]
-        elif ext == ".m4a":
-            dst_path = os.path.join(dst_dir, filename)
-            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst_path]
-        elif ext in (".opus", ".webm"):
-            dst_filename = f"{name_without_ext}.mp3"
-            dst_path = os.path.join(dst_dir, dst_filename)
-            cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst_path]
-        else:
-            dst_path = os.path.join(dst_dir, filename)
-            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst_path]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        if result.returncode != 0:
-            app.logger.error("ffmpeg failed: %s", result.stderr)
-            raise RuntimeError(f"ffmpeg failed: {result.stderr}")
-        app.logger.info("Processed file -> %s", dst_path)
-        return dst_path
-    except Exception:
-        tb = traceback.format_exc()
-        app.logger.error("process_file failed: %s", tb)
-        raise
+    name, ext = os.path.splitext(filename)
+    ext = ext.lower()
+
+    if ext == ".mp4":
+        dst = os.path.join(dst_dir, f"{name}.m4a")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst]
+    elif ext == ".m4a":
+        dst = os.path.join(dst_dir, filename)
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+    elif ext in (".opus", ".webm"):
+        dst = os.path.join(dst_dir, f"{name}.mp3")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst]
+    else:
+        dst = os.path.join(dst_dir, filename)
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    if proc.returncode != 0:
+        app.logger.error("ffmpeg failed: %s", proc.stderr)
+        raise RuntimeError(proc.stderr)
+    app.logger.info("Processed file -> %s", dst)
+    return dst
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -80,51 +70,43 @@ def index():
     formats = None
     error = None
 
-    app.logger.info("Request method: %s", request.method)
     if request.method == "POST":
         action = request.form.get("action")
         url = request.form.get("url")
-        app.logger.info("Form action=%s url=%s", action, url)
-
         if not url:
-            msg = "URL is required"
-            app.logger.warning(msg)
-            flash(msg, "error")
-            return redirect(url_for("index"))
+            flash("URL is required", "error")
+            return redirect(request.url)
 
         try:
             if action == "inspect" or not action:
-                app.logger.info("Inspecting URL")
                 info = get_video_info(url)
                 formats = info.get("formats")
                 title = info.get("title")
-                app.logger.info("Found %d formats for %s", len(formats or []), title)
             elif action == "download":
                 format_id = request.form.get("format_id") or None
                 audio_only = request.form.get("audio_only") == "1"
-                app.logger.info("Downloading url=%s format_id=%s audio_only=%s", url, format_id, audio_only)
-                
-                # create unique key and register
+
                 key = _new_download_key()
-                _set_download(key, {"status": "queued", "title": title or url, "filepath": None})
-                socketio.emit("download_started", {"key": key, "message": "Queued", "title": title or url})
-                
+                _set_download(key, {"status": "queued", "title": title or url})
+                # broadcast queued event so client creates entry
+                socketio.emit("download_started", {"key": key, "title": title or url, "message": "Queued"}, broadcast=True)
+
                 def download_bg(k=key, u=url, fmt=format_id, audio=audio_only):
                     try:
                         _set_download(k, {"status": "downloading"})
-                        socketio.emit("download_status", {"key": k, "status": "downloading", "message": "Starting download..."})
-                        
+                        socketio.emit("download_status", {"key": k, "status": "downloading", "message": "Starting download..."}, broadcast=True)
+
                         result = download_video(u, format_id=fmt, audio_only=audio)
                         _set_download(k, {"status": "downloaded", "tmp_filepath": result.get("filepath")})
-                        socketio.emit("download_status", {"key": k, "status": "downloaded", "message": "Download finished, processing..."})
-                        
-                        # process and move to acc
+                        socketio.emit("download_status", {"key": k, "status": "downloaded", "message": "Download finished, processing..."}, broadcast=True)
+
                         acc_path = process_file(result.get("filepath"), "acc")
                         _set_download(k, {"status": "done", "filepath": acc_path})
-                        
-                        # build a safe relative download URL (no app context required)
+
+                        # build safe relative URL (no url_for required)
                         safe_name = quote(os.path.basename(acc_path), safe='')
                         download_url = f"/download/acc/{safe_name}"
+
                         socketio.emit("download_complete", {
                             "key": k,
                             "status": "success",
@@ -132,22 +114,19 @@ def index():
                             "filepath": acc_path,
                             "title": result.get("title"),
                             "message": "Ready"
-                        })
+                        }, broadcast=True)
                     except Exception as e:
                         tb = traceback.format_exc()
                         app.logger.error("Background download failed: %s\n%s", e, tb)
                         _set_download(k, {"status": "error", "error": str(e)})
-                        socketio.emit("download_complete", {"key": k, "status": "error", "message": str(e)})
-                
-                thread = Thread(target=download_bg, daemon=True)
-                thread.start()
-                
+                        socketio.emit("download_complete", {"key": k, "status": "error", "message": str(e)}, broadcast=True)
+
+                Thread(target=download_bg, daemon=True).start()
                 flash("Download queued", "info")
-                return redirect(url_for("index"))
+                return redirect(request.url)
         except Exception as e:
             tb = traceback.format_exc()
-            app.logger.error("Exception handling request: %s\n%s", str(e), tb)
-            error = str(e) + "\n\n" + tb
+            app.logger.error("Exception handling request: %s\n%s", e, tb)
             flash(str(e), "error")
 
     flashed = get_flashed_messages(with_categories=True)
@@ -155,22 +134,19 @@ def index():
 
 @app.route("/download/<folder>/<path:filename>")
 def download(folder, filename):
-    # only allow serving from these folders
     if folder not in ("acc", "downloads"):
         return "Invalid folder", 400
     base = os.path.abspath(folder)
     abspath = os.path.abspath(os.path.join(folder, filename))
-    if not abspath.startswith(base + os.sep) and abspath != base:
+    if not (abspath.startswith(base + os.sep) or abspath == base):
         return "Forbidden", 403
     if os.path.exists(abspath):
         return send_file(abspath, as_attachment=True)
-    else:
-        return "File not found", 404
+    return "File not found", 404
 
 @socketio.on("connect")
 def handle_connect():
     app.logger.info("Client connected")
-    emit("response", {"data": "Connected"})
 
 @socketio.on("disconnect")
 def handle_disconnect():
@@ -179,4 +155,5 @@ def handle_disconnect():
 if __name__ == "__main__":
     os.makedirs("downloads", exist_ok=True)
     os.makedirs("acc", exist_ok=True)
+    # allow unsafe werkzeug for dev/testing
     socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
