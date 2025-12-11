@@ -39,8 +39,9 @@ def _get_download(key: str):
 # ---------- File processor ----------
 def process_file(src_path: str, dst_dir: str) -> str:
     DST_DIR = "/app/download"
-    os.makedirs(DST_DIR, dst_dir, exist_ok=True)
-    filename = os.path.basename(src_path)
+    full_dir = os.path.join(DST_DIR, dst_dir)
+    os.makedirs(full_dir, exist_ok=True)
+    filename = quote(os.path.basename(src_path))
     name, ext = os.path.splitext(filename)
     ext = ext.lower()
 
