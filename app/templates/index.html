@@ -172,14 +172,19 @@
         e.preventDefault();
         const submitBtn = downloadForm.querySelector('button[type="submit"]');
         if(submitBtn) submitBtn.disabled = true;
-
-        const formData = new FormData(downloadForm);
+        const url = e.target.url.value.trim();
+        const format_id = e.target.format_id.value.trim();
+        const audio_only = document.getElementById('audioOnly').checked?'1':'0';
+        if(!url || !format_id) return showToast('URL and Format ID required',3000);
+        
+        const formData=new FormData();
+        formData.set('url',url);
+        formData.set('format_id',format_id);
+        formData.set('audio_only',audio_only);
+        formData.set('action','download');
 
         try{
-          const res = await fetch(downloadForm.action, {
-            method: 'POST',
-            body: formData
-            });
+          const res = await fetch('/',{method:'POST',body:formData});
           if(res.ok){
             const data = await res.json();
             if(data.key) myDownloadKeys.add(data.key);
