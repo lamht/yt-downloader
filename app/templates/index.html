@@ -167,6 +167,38 @@
         }
       });
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const downloadForm = document.getElementById('downloadForm');
+      if (!downloadForm) return;
+
+      downloadForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const submitBtn = document.querySelector('button[form="downloadForm"]');
+          if (submitBtn) submitBtn.disabled = true;
+
+          const formData = new FormData(downloadForm);
+          formData.set('action', 'download');
+
+          try {
+              const res = await fetch(downloadForm.action || window.location.href, {
+                  method: 'POST',
+                  body: formData,
+                  credentials: 'same-origin'
+              });
+              if (!res.ok) {
+                  showToast('Failed to queue download', 4000);
+              } else {
+                  showToast('Download queued', 2000);
+              }
+          } catch (err) {
+              console.error(err);
+              showToast('Network error', 4000);
+          } finally {
+              if (submitBtn) submitBtn.disabled = false;
+          }
+      });
+    });
   </script>
 </body>
 </html>
