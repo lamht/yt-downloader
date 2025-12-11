@@ -5,7 +5,8 @@ import os
 import logging
 import traceback
 import subprocess
-from threading import Thread
+import uuid
+from threading import Thread, Lock
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
@@ -13,12 +14,27 @@ app.logger.setLevel(logging.INFO)
 app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# in-memory map to track downloads by key
+_downloads: dict = {}
+_downloads_lock = Lock()
+
+def _new_download_key() -> str:
+    return uuid.uuid4().hex
+
+def _set_download(key: str, data: dict):
+    with _downloads_lock:
+        _downloads[key] = {**_downloads.get(key, {}), **data}
+
+def _get_download(key: str) -> dict | None:
+    with _downloads_lock:
+        return _downloads.get(key)
+
 def process_file(src_path: str, dst_dir: str) -> str:
     """
     Process file based on format:
-    - MP4: extract audio (copy codec, no encode)
+    - MP4: extract audio (copy codec, no encode) -> .m4a
     - M4A: copy audio (no encode)
-    - OPUS: extract audio to MP3 (with encode)
+    - OPUS/WEBM: encode to mp3
     - Other: copy as-is
     """
     os.makedirs(dst_dir, exist_ok=True)
@@ -31,76 +47,30 @@ def process_file(src_path: str, dst_dir: str) -> str:
     
     try:
         if ext == ".mp4":
-            # MP4: extract audio, copy codec (no re-encode)
-            dst_filename = f"{name_without_ext}.aac"
+            dst_filename = f"{name_without_ext}.m4a"
             dst_path = os.path.join(dst_dir, dst_filename)
-            app.logger.info("MP4 detected - extracting audio (copy codec) to %s", dst_path)
-            
-            cmd = [
-                "ffmpeg",
-                "-i", src_path,
-                "-map", "a",  # extract audio only
-                "-c:a", "copy",  # copy audio codec (no re-encode)
-                "-y",  # overwrite
-                dst_path
-            ]
-        
+            cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst_path]
         elif ext == ".m4a":
-            # M4A: copy as-is (no encode)
-            dst_filename = f"{name_without_ext}.aac"
-            dst_path = os.path.join(dst_dir, dst_filename)
-            app.logger.info("M4A detected - copying audio (no encode) to %s", dst_path)
-            
-            cmd = [
-                "ffmpeg",
-                "-i", src_path,
-                "-c", "copy",  # copy all codecs
-                "-y",
-                dst_path
-            ]
-        
-        elif ext == ".opus" or ext == ".webm":
-            # OPUS/WEBM: encode to MP3
+            dst_path = os.path.join(dst_dir, filename)
+            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst_path]
+        elif ext in (".opus", ".webm"):
             dst_filename = f"{name_without_ext}.mp3"
             dst_path = os.path.join(dst_dir, dst_filename)
-            app.logger.info("OPUS/WEBM detected - encoding audio to %s", dst_path)
-            
-            cmd = [
-                "ffmpeg",
-                "-i", src_path,
-                "-q:a", "0",  # best quality
-                "-map", "a",
-                "-y",
-                dst_path
-            ]
-        
+            cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst_path]
         else:
-            # Other formats: copy as-is
             dst_path = os.path.join(dst_dir, filename)
-            app.logger.info("Other format - copying to %s", dst_path)
-            
-            cmd = [
-                "ffmpeg",
-                "-i", src_path,
-                "-c", "copy",
-                "-y",
-                dst_path
-            ]
+            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst_path]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        
-        if result.returncode == 0:
-            app.logger.info("Successfully processed to %s", dst_path)
-            return dst_path
-        else:
-            app.logger.error("ffmpeg error: %s", result.stderr)
+        if result.returncode != 0:
+            app.logger.error("ffmpeg failed: %s", result.stderr)
             raise RuntimeError(f"ffmpeg failed: {result.stderr}")
-    
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("ffmpeg operation timeout")
-    except Exception as e:
-        app.logger.error("Processing failed: %s", e)
-        raise RuntimeError(f"Failed to process file: {e}")
+        app.logger.info("Processed file -> %s", dst_path)
+        return dst_path
+    except Exception:
+        tb = traceback.format_exc()
+        app.logger.error("process_file failed: %s", tb)
+        raise
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -133,38 +103,44 @@ def index():
                 audio_only = request.form.get("audio_only") == "1"
                 app.logger.info("Downloading url=%s format_id=%s audio_only=%s", url, format_id, audio_only)
                 
-                # Start download in background thread and emit via WebSocket
-                def download_bg():
+                # create unique key and register
+                key = _new_download_key()
+                _set_download(key, {"status": "queued", "title": title or url, "filepath": None})
+                socketio.emit("download_started", {"key": key, "message": "Queued", "title": title or url})
+                
+                def download_bg(k=key, u=url, fmt=format_id, audio=audio_only):
                     try:
-                        socketio.emit("download_status", {"status": "downloading", "message": "Starting download..."})
-                        result = download_video(url, format_id=format_id, audio_only=audio_only)
+                        _set_download(k, {"status": "downloading"})
+                        socketio.emit("download_status", {"key": k, "status": "downloading", "message": "Starting download..."})
                         
-                        # Process file to acc folder
-                        socketio.emit("download_status", {"status": "processing", "message": "Processing file..."})
+                        result = download_video(u, format_id=fmt, audio_only=audio)
+                        _set_download(k, {"status": "downloaded", "tmp_filepath": result.get("filepath")})
+                        socketio.emit("download_status", {"key": k, "status": "downloaded", "message": "Download finished, processing..."})
+                        
+                        # process and move to acc
                         acc_path = process_file(result.get("filepath"), "acc")
+                        _set_download(k, {"status": "done", "filepath": acc_path})
                         
-                        # Build safe download URL (serve only from allowed folders)
                         with app.app_context():
                             download_url = url_for('download', folder='acc', filename=os.path.basename(acc_path))
-                        
                         socketio.emit("download_complete", {
+                            "key": k,
                             "status": "success",
-                            "filepath": acc_path,
                             "download_url": download_url,
+                            "filepath": acc_path,
                             "title": result.get("title"),
-                            "message": f"Done: {result.get('title')}"
+                            "message": "Ready"
                         })
                     except Exception as e:
-                        app.logger.error("Download error: %s", e)
-                        socketio.emit("download_complete", {
-                            "status": "error",
-                            "message": str(e)
-                        })
+                        tb = traceback.format_exc()
+                        app.logger.error("Background download failed: %s\n%s", e, tb)
+                        _set_download(k, {"status": "error", "error": str(e)})
+                        socketio.emit("download_complete", {"key": k, "status": "error", "message": str(e)})
                 
                 thread = Thread(target=download_bg, daemon=True)
                 thread.start()
                 
-                flash("Download started...", "info")
+                flash("Download queued", "info")
                 return redirect(url_for("index"))
         except Exception as e:
             tb = traceback.format_exc()
@@ -182,7 +158,6 @@ def download(folder, filename):
         return "Invalid folder", 400
     base = os.path.abspath(folder)
     abspath = os.path.abspath(os.path.join(folder, filename))
-    # ensure file is inside the allowed folder
     if not abspath.startswith(base + os.sep) and abspath != base:
         return "Forbidden", 403
     if os.path.exists(abspath):
@@ -202,5 +177,4 @@ def handle_disconnect():
 if __name__ == "__main__":
     os.makedirs("downloads", exist_ok=True)
     os.makedirs("acc", exist_ok=True)
-    # Development/testing: allow Werkzeug (not recommended for production).
     socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
