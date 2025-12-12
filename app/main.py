@@ -181,7 +181,19 @@ def download_aac(filename):
     path = os.path.join(DST_DIR, filename)
 
     if os.path.exists(path):
-        return send_from_directory(DST_DIR, filename, as_attachment=True)
+        rv = send_from_directory(
+            DST_DIR,
+            filename,
+            as_attachment=True
+        )
+
+        # Thêm header Content-Disposition chuẩn Unicode
+        rv.headers.add(
+            "Content-Disposition",
+            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{filename}'
+        )
+
+        return rv
     
     return "File not found", 404
 
