@@ -43,6 +43,8 @@ def process_file(src_path: str, dst_dir: str) -> str:
     os.makedirs(full_dir, exist_ok=True)
     filename = quote(os.path.basename(src_path))
     name, ext = os.path.splitext(filename)
+    name = name[:100]
+    filename = name + ext
     ext = ext.lower()
 
     # choose output
