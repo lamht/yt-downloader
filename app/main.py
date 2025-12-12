@@ -41,9 +41,10 @@ def process_file(src_path: str, dst_dir: str) -> str:
     DST_DIR = "/app/download"
     full_dir = os.path.join(DST_DIR, dst_dir)
     os.makedirs(full_dir, exist_ok=True)
-    filename = quote(os.path.basename(src_path))
+    filename = os.path.basename(src_path)
     name, ext = os.path.splitext(filename)
     name = name[:100]
+    name = quote(name)
     filename = name + ext
     ext = ext.lower()
 
@@ -134,8 +135,8 @@ def index():
                         aac_path = process_file(tmp, "aac")
                         _set_download(k, {"status": "done", "filepath": aac_path})
 
-                        safe_name = quote(os.path.basename(aac_path))
-                        download_url = f"/download/aac/{safe_name}"
+                        file_name = os.path.basename(aac_path)
+                        download_url = f"/download/aac/{file_name}"
 
                         socketio.emit("download_complete", {
                             "key": k,
@@ -179,10 +180,7 @@ def download_aac(filename):
     path = os.path.join(DST_DIR, filename)
     if not os.path.exists(path):
         return "File not found", 404
-
-    # Escape Unicode filename cho header
-    safe_filename = quote(filename)
-
+    
     rv = send_from_directory(
         DST_DIR,
         filename,
@@ -191,8 +189,8 @@ def download_aac(filename):
     )
 
     rv.headers.add(
-        "Content-Disposition",
-        f'attachment; filename="{filename}"; filename*=UTF-8\'\'{safe_filename}'
+    "Content-Disposition",
+    f'attachment; filename="{unquote(filename)}"; filename*=UTF-8\'\'{filename}'
     )
     rv.headers.add("Content-Length", str(os.path.getsize(path)))
 
