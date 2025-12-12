@@ -8,7 +8,7 @@ from urllib.parse import quote, unquote
 
 from flask import (
     Flask, render_template, request, send_from_directory,
-    redirect, flash, get_flashed_messages, jsonify
+    redirect, flash, get_flashed_messages, jsonify, Response
 )
 from flask_socketio import SocketIO
 
@@ -187,20 +187,24 @@ def download_aac(filename):
     if not os.path.exists(path):
         return "File not found", 404
     
-    rv = send_from_directory(
-        DST_DIR,
-        filename,
-        as_attachment=True,
-        conditional=True  # hỗ trợ Range request
-    )
+    file_size = os.path.getsize(path)
 
-    rv.headers.add(
-    "Content-Disposition",
-    f'attachment; filename*=UTF-8\'\'{filename}'
-    )
-    rv.headers.add("Content-Length", str(os.path.getsize(path)))
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+        "Content-Length": str(file_size),
+        "Content-Type": "application/octet-stream"
+    }
 
-    return rv
+    def generate():
+        with open(path, "rb") as f:
+            chunk_size = 8192
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+
+    return Response(generate(), headers=headers)
 
 # ---------- Run ----------
 if __name__ == "__main__":
