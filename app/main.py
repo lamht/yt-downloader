@@ -186,13 +186,16 @@ def download_aac(filename):
         if mimetype is None:
             mimetype = "application/octet-stream"
 
-        return send_file(
+        rv = send_file(
             path,
             as_attachment=True,
             mimetype=mimetype,
             conditional=True  # hỗ trợ range requests
         )
-
+        rv.headers.add('Content-Length', str(os.path.getsize(path)))
+        rv.headers.add('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
+        return rv
+    
     return "File not found", 404
 
 # ---------- Run ----------
