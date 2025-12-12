@@ -181,7 +181,8 @@ def index():
 @app.route("/download/aac/<path:filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
-    path = os.path.join(DST_DIR, filename)
+    encoded_filename = quote(filename)
+    path = os.path.join(DST_DIR, encoded_filename)
     logger.info("Serving file: %s", path)
     if not os.path.exists(path):
         return "File not found", 404
@@ -195,7 +196,7 @@ def download_aac(filename):
 
     rv.headers.add(
     "Content-Disposition",
-    f'attachment; filename="{unquote(filename)}"; filename*=UTF-8\'\'{filename}'
+    f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
     )
     rv.headers.add("Content-Length", str(os.path.getsize(path)))
 
