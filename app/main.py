@@ -8,7 +8,7 @@ from urllib.parse import quote
 import mimetypes
 
 from flask import (
-    Flask, render_template, request, send_file,
+    Flask, render_template, request, send_from_directory,
     redirect, flash, get_flashed_messages, jsonify
 )
 from flask_socketio import SocketIO
@@ -177,24 +177,11 @@ def index():
 # ---------- File download ----------
 @app.route("/download/aac/<filename>")
 def download_aac(filename):
-    DST_DIR = "/app/download"
-    path = os.path.join(DST_DIR, "aac", filename)
+    DST_DIR = "/app/download/aac"
+    path = os.path.join(DST_DIR, filename)
 
     if os.path.exists(path):
-        # Lấy mimetype dựa trên phần mở rộng, mặc định "application/octet-stream"
-        mimetype, _ = mimetypes.guess_type(path)
-        if mimetype is None:
-            mimetype = "application/octet-stream"
-
-        rv = send_file(
-            path,
-            as_attachment=True,
-            mimetype=mimetype,
-            conditional=True  # hỗ trợ range requests
-        )
-        rv.headers.add('Content-Length', str(os.path.getsize(path)))
-        rv.headers.add('Content-Disposition', f'attachment; filename="{os.path.basename(path)}"')
-        return rv
+        return send_from_directory(DST_DIR, filename, as_attachment=True)
     
     return "File not found", 404
 
