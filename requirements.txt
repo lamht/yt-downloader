@@ -1,5 +1,5 @@
 Flask==3.1.2
 Flask-SocketIO==5.5.1
 python-socketio==5.15.0
-python-engineio==4.9.0
+python-engineio>=4.11.0
 yt-dlp==2025.12.08
