@@ -138,7 +138,7 @@ def index():
                         logger.info("Processed file saved to: %s", aac_path)
                         _set_download(k, {"status": "done", "filepath": aac_path})
 
-                        file_name = os.path.basename(aac_path)
+                        file_name = quote(os.path.basename(aac_path))
                         download_url = f"/download/aac/{file_name}"
 
                         socketio.emit("download_complete", {
@@ -181,8 +181,8 @@ def index():
 @app.route("/download/aac/<path:filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
-    encoded_filename = quote(filename)
-    path = os.path.join(DST_DIR, encoded_filename)
+    
+    path = os.path.join(DST_DIR, filename)
     logger.info("Serving file: %s", path)
     if not os.path.exists(path):
         return "File not found", 404
@@ -196,7 +196,7 @@ def download_aac(filename):
 
     rv.headers.add(
     "Content-Disposition",
-    f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
+    f'attachment; filename="{unquote(filename)}"; filename*=UTF-8\'\'{filename}'
     )
     rv.headers.add("Content-Length", str(os.path.getsize(path)))
 
