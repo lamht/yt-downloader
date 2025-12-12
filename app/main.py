@@ -196,7 +196,7 @@ def download_aac(filename):
 
     rv.headers.add(
     "Content-Disposition",
-    f'attachment; filename="{unquote(filename)}"; filename*=UTF-8\'\'{filename}'
+    f'attachment; filename*=UTF-8\'\'{filename}'
     )
     rv.headers.add("Content-Length", str(os.path.getsize(path)))
 
