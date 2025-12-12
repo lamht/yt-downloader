@@ -4,8 +4,7 @@ import logging
 import traceback
 import subprocess
 from threading import Thread, Lock
-from urllib.parse import quote
-import mimetypes
+from urllib.parse import quote, unquote
 
 from flask import (
     Flask, render_template, request, send_from_directory,
@@ -175,27 +174,31 @@ def index():
                            flashed=flashed)
 
 # ---------- File download ----------
-@app.route("/download/aac/<filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
+    filename = unquote(filename)
+
     path = os.path.join(DST_DIR, filename)
+    if not os.path.exists(path):
+        return "File not found", 404
 
-    if os.path.exists(path):
-        rv = send_from_directory(
-            DST_DIR,
-            filename,
-            as_attachment=True
-        )
+    # Escape Unicode filename cho header
+    safe_filename = quote(filename)
 
-        # Thêm header Content-Disposition chuẩn Unicode
-        rv.headers.add(
-            "Content-Disposition",
-            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{filename}'
-        )
-
-        return rv
+    rv = send_from_directory(
+        DST_DIR,
+        filename,
+        as_attachment=True,
+        conditional=True  # hỗ trợ Range request
+    )
     
-    return "File not found", 404
+    rv.headers.add(
+        "Content-Disposition",
+        f'attachment; filename="{filename}"; filename*=UTF-8\'\'{safe_filename}'
+    )
+    rv.headers.add("Content-Length", str(os.path.getsize(path)))
+
+    return rv
 
 # ---------- Run ----------
 if __name__ == "__main__":
