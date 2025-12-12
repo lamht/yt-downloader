@@ -178,7 +178,7 @@ def index():
                            flashed=flashed)
 
 # ---------- File download ----------
-@app.route("/download/aac/<filename>")
+@app.route("/download/aac/<path:filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
     path = os.path.join(DST_DIR, filename)
