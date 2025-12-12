@@ -86,7 +86,7 @@ def download_video(url: str, out_dir="downloads", format_id: str | None = None, 
             "format": "bestaudio/best",
             "noplaylist": True,
             "postprocessors": [
-                {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}
+                {"key": "FFmpegExtractAudio", "preferredcodec": "aac", "preferredquality": "192"}
             ]
         })
         try_opts_list = [ydl_opts]
