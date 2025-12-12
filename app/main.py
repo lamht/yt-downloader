@@ -176,8 +176,6 @@ def index():
 # ---------- File download ----------
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
-    filename = unquote(filename)
-
     path = os.path.join(DST_DIR, filename)
     if not os.path.exists(path):
         return "File not found", 404
@@ -191,7 +189,7 @@ def download_aac(filename):
         as_attachment=True,
         conditional=True  # hỗ trợ Range request
     )
-    
+
     rv.headers.add(
         "Content-Disposition",
         f'attachment; filename="{filename}"; filename*=UTF-8\'\'{safe_filename}'
