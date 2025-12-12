@@ -6,7 +6,6 @@ import subprocess
 from threading import Thread, Lock
 from urllib.parse import quote
 import mimetypes
-from flask import send_file, safe_join, abort
 
 from flask import (
     Flask, render_template, request, send_file,
@@ -178,8 +177,8 @@ def index():
 # ---------- File download ----------
 @app.route("/download/aac/<filename>")
 def download_aac(filename):
-    DST_DIR = "/app/download/aac"
-    path = safe_join(DST_DIR, filename)
+    DST_DIR = "/app/download"
+    path = os.path.join(DST_DIR, "aac", filename)
 
     if os.path.exists(path):
         # Lấy mimetype dựa trên phần mở rộng, mặc định "application/octet-stream"
