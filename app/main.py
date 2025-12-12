@@ -20,6 +20,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 socketio = SocketIO(app, cors_allowed_origins="*")
 app.logger.setLevel(logging.INFO)
+logger = logging.getLogger("main")
+logger.setLevel(logging.INFO)
 
 # ---------- Download tracking ----------
 _downloads = {}
@@ -133,6 +135,7 @@ def index():
 
                         # process with ffmpeg
                         aac_path = process_file(tmp, "aac")
+                        logger.info("Processed file saved to: %s", aac_path)
                         _set_download(k, {"status": "done", "filepath": aac_path})
 
                         file_name = os.path.basename(aac_path)
@@ -178,6 +181,7 @@ def index():
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
     path = os.path.join(DST_DIR, filename)
+    logger.info("Serving file: %s", path)
     if not os.path.exists(path):
         return "File not found", 404
     
