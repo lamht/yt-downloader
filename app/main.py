@@ -181,6 +181,8 @@ def index():
 @app.route("/download/aac/<path:filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
+
+    ascii_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
     
     path = os.path.join(DST_DIR, filename)
     logger.info("Serving file: %s", path)
@@ -190,7 +192,7 @@ def download_aac(filename):
     file_size = os.path.getsize(path)
 
     headers = {
-        "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+        "Content-Disposition": f"attachment; filename='{ascii_filename}'; filename*=UTF-8''{filename}",
         "Content-Length": str(file_size),
         "Content-Type": "application/octet-stream"
     }
