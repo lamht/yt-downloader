@@ -11,7 +11,6 @@ logger.setLevel(logging.INFO)
 
 def _base_ydl_opts(extra: dict | None = None):
     opts = {
-        "cookiefile": "/app/app/cookies/cookies.txt",
         "quiet": False,
         "no_warnings": False,
         "logger": logger,
