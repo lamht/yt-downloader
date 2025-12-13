@@ -63,6 +63,8 @@ def _base_ydl_opts(extra: dict | None = None):
 
 def get_video_info(url: str):
     """Inspect video formats"""
+    logger.info("Inspecting URL: %s", url)  # <-- log URL
+
     ydl_opts = _base_ydl_opts({"noplaylist": True})
     cookie_file = _get_cookie_file()
     if cookie_file:
@@ -88,15 +90,14 @@ def get_video_info(url: str):
             logger.info("Found %d formats for %s", len(formats), title)
             return {"title": title, "formats": formats, "info": info}
     except Exception as e:
-        logger.exception("get_video_info failed")
+        logger.exception("get_video_info failed for URL: %s", url)
         raise RuntimeError(f"Failed to get video info: {e}")
 
 def download_video(url: str, out_dir: str = "downloads", format_id: str | None = None, audio_only: bool = False):
     os.makedirs(out_dir, exist_ok=True)
-    logger.info("download_video called format_id=%s audio_only=%s", format_id, audio_only)
+    logger.info("Download called for URL: %s | format_id=%s | audio_only=%s", url, format_id, audio_only)
     cookie_file = _get_cookie_file()
 
-    # ---------- determine ydl options ----------
     try_opts_list = []
 
     if format_id:
