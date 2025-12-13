@@ -1,33 +1,22 @@
-# Base image nhẹ, Python 3.14
-FROM python:3.14-slim
+FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Cài build tools, dev libs & ffmpeg trước pip
+# System deps (chỉ giữ cái cần)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    python3-dev \
-    gcc \
-    git \
-    libffi-dev \
-    libssl-dev \
     ffmpeg \
+    ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Python deps
 COPY requirements.txt .
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Upgrade pip & cài dependencies
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy toàn bộ source code
+# App source
 COPY . .
 
-# Expose cổng Flask
 EXPOSE 5000
 
-# Chạy Flask app
 CMD ["python", "app/main.py"]
