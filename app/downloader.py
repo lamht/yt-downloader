@@ -139,32 +139,3 @@ def download_video(url: str, out_dir: str = "downloads", format_id: str | None =
             continue
 
     raise RuntimeError("Failed to download after all retries")
-
-def process_file(src_path: str, dst_dir: str) -> str:
-    DST_DIR = "/app/download"
-    full_dir = os.path.join(DST_DIR, dst_dir)
-    os.makedirs(full_dir, exist_ok=True)
-
-    filename = os.path.basename(src_path)
-    name, ext = os.path.splitext(filename)
-    name = quote(name[:100])
-    ext = ext.lower()
-
-    if ext == ".mp4":
-        dst = os.path.join(full_dir, f"{name}.aac")
-        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst]
-    elif ext == ".m4a":
-        dst = os.path.join(full_dir, f"{name}.aac")
-        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
-    elif ext in (".opus", ".webm"):
-        dst = os.path.join(full_dir, f"{name}.mp3")
-        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst]
-    else:
-        dst = os.path.join(full_dir, f"{name}{ext}")
-        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
-
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        logger.error("ffmpeg failed: %s", proc.stderr)
-        raise RuntimeError(proc.stderr)
-    return dst
