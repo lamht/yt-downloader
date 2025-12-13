@@ -67,7 +67,7 @@ def _base_ydl_opts(extra: dict | None = None):
         "quiet": False,
         "no_warnings": False,
         "logger": logger,
-        "user_agent": WINDOWS_UA,
+        #"user_agent": WINDOWS_UA,
         "retries": 3,
         "fragment_retries": 3,
         "extractor_retries": 3,
