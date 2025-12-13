@@ -81,7 +81,7 @@ def process_file(src_path: str, dst_dir: str) -> str:
 # / → index.html
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return send_from_directory("templates", "index.html")
 
 # /inspect → JSON
 @app.route("/inspect", methods=["POST"])
