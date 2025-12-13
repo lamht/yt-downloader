@@ -1,5 +1,5 @@
 import eventlet
-eventlet.monkey_patch()   # ⚠️ BẮT BUỘC – phải ở trên cùng
+eventlet.monkey_patch()
 
 import os
 import uuid
@@ -10,9 +10,8 @@ from threading import Thread, Lock
 from urllib.parse import quote
 
 from flask import (
-    Flask, render_template, request,
-    redirect, flash, get_flashed_messages,
-    jsonify, Response
+    Flask, request, jsonify,
+    send_from_directory, Response
 )
 from flask_socketio import SocketIO
 
@@ -21,7 +20,7 @@ from downloader import download_video, get_video_info
 # ---------- Setup ----------
 logging.basicConfig(level=logging.INFO)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 
 socketio = SocketIO(
@@ -30,24 +29,18 @@ socketio = SocketIO(
     async_mode="eventlet"
 )
 
-app.logger.setLevel(logging.INFO)
 logger = logging.getLogger("main")
-logger.setLevel(logging.INFO)
 
 # ---------- Download tracking ----------
 _downloads = {}
-_downloads_lock = Lock()
+_lock = Lock()
 
-def _new_download_key():
+def _new_key():
     return uuid.uuid4().hex
 
-def _set_download(key: str, data: dict):
-    with _downloads_lock:
-        _downloads[key] = {**_downloads.get(key, {}), **data}
-
-def _get_download(key: str):
-    with _downloads_lock:
-        return _downloads.get(key)
+def _set(k, data):
+    with _lock:
+        _downloads[k] = {**_downloads.get(k, {}), **data}
 
 # ---------- File processor ----------
 def process_file(src_path: str, dst_dir: str) -> str:
@@ -79,132 +72,107 @@ def process_file(src_path: str, dst_dir: str) -> str:
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        logger.error("ffmpeg failed: %s", proc.stderr)
         raise RuntimeError(proc.stderr)
 
     return dst
 
-# ---------- Main page ----------
-@app.route("/", methods=["GET", "POST"])
+# ---------- Routes ----------
+
+# / → index.html
+@app.route("/")
 def index():
-    filepath = None
-    title = None
-    formats = None
-    error = None
+    return send_from_directory("static", "index.html")
 
-    if request.method == "POST":
-        action = request.form.get("action")
-        url = request.form.get("url")
+# /inspect → JSON
+@app.route("/inspect", methods=["POST"])
+def inspect():
+    data = request.json or request.form
+    url = data.get("url")
 
-        if not url:
-            flash("URL is required", "error")
-            return redirect(request.url)
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
 
+    info = get_video_info(url)
+
+    return jsonify({
+        "title": info.get("title"),
+        "formats": info.get("formats", [])
+    })
+
+# /download → JSON + socket
+@app.route("/download", methods=["POST"])
+def download():
+    data = request.json or request.form
+
+    url = data.get("url")
+    format_id = data.get("format_id") or None
+    audio_only = str(data.get("audio_only", "0")) == "1"
+
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+
+    key = _new_key()
+    _set(key, {"status": "queued"})
+
+    socketio.emit("download_started", {
+        "key": key,
+        "status": "queued"
+    })
+
+    def bg_download():
         try:
-            # Inspect
-            if action == "inspect" or not action:
-                info = get_video_info(url)
-                formats = info.get("formats")
-                title = info.get("title")
+            _set(key, {"status": "downloading"})
+            socketio.emit("download_status", {
+                "key": key,
+                "status": "downloading",
+                "message": "Downloading..."
+            })
 
-            # Download
-            elif action == "download":
-                format_id = request.form.get("format_id") or None
-                audio_only = request.form.get("audio_only") == "1"
+            result = download_video(
+                url,
+                format_id=format_id,
+                audio_only=audio_only
+            )
 
-                info = get_video_info(url)
-                title = info.get("title")
+            socketio.emit("download_status", {
+                "key": key,
+                "status": "processing",
+                "message": "Processing..."
+            })
 
-                key = _new_download_key()
-                _set_download(key, {"status": "queued", "title": title})
+            final_path = process_file(result["filepath"], "aac")
+            file_name = quote(os.path.basename(final_path))
 
-                socketio.emit("download_started", {
-                    "key": key,
-                    "title": title,
-                    "message": "Queued"
-                })
+            _set(key, {
+                "status": "done",
+                "filepath": final_path
+            })
 
-                def bg_download(k, u, fmt, audio):
-                    try:
-                        _set_download(k, {"status": "downloading"})
-                        socketio.emit("download_status", {
-                            "key": k,
-                            "status": "downloading",
-                            "message": "Starting download..."
-                        })
-
-                        result = download_video(
-                            u,
-                            format_id=fmt,
-                            audio_only=audio
-                        )
-
-                        tmp = result["filepath"]
-
-                        socketio.emit("download_status", {
-                            "key": k,
-                            "status": "downloaded",
-                            "message": "Download complete. Processing..."
-                        })
-
-                        final_path = process_file(tmp, "aac")
-                        logger.info("Processed file saved to: %s", final_path)
-
-                        _set_download(k, {
-                            "status": "done",
-                            "filepath": final_path
-                        })
-
-                        file_name = quote(os.path.basename(final_path))
-                        download_url = f"/download/aac/{file_name}"
-
-                        socketio.emit("download_complete", {
-                            "key": k,
-                            "status": "success",
-                            "download_url": download_url,
-                            "title": result.get("title"),
-                            "message": "Ready"
-                        })
-
-                    except Exception as e:
-                        tb = traceback.format_exc()
-                        logger.error("Background error: %s\n%s", e, tb)
-
-                        _set_download(k, {
-                            "status": "error",
-                            "error": str(e)
-                        })
-
-                        socketio.emit("download_complete", {
-                            "key": k,
-                            "status": "error",
-                            "message": str(e)
-                        })
-
-                Thread(
-                    target=bg_download,
-                    daemon=True,
-                    args=(key, url, format_id, audio_only)
-                ).start()
-
-                return jsonify({"status": "queued", "key": key})
+            socketio.emit("download_complete", {
+                "key": key,
+                "status": "done",
+                "download_url": f"/download/aac/{file_name}"
+            })
 
         except Exception as e:
-            error = str(e)
-            flash(error, "error")
-            return redirect(request.url)
+            logger.error(traceback.format_exc())
+            _set(key, {"status": "error", "error": str(e)})
 
-    flashed = get_flashed_messages(with_categories=True)
-    return render_template(
-        "index.html",
-        filepath=filepath,
-        title=title,
-        formats=formats,
-        error=error,
-        flashed=flashed
-    )
+            socketio.emit("download_complete", {
+                "key": key,
+                "status": "error",
+                "message": str(e)
+            })
 
-# ---------- File download ----------
+    Thread(target=bg_download, daemon=True).start()
+    # (có thể đổi thành socketio.start_background_task(bg_download))
+
+    return jsonify({
+        "key": key,
+        "status": "queued"
+    })
+
+# ---------- GIỮ NGUYÊN 100% ----------
 @app.route("/download/aac/<path:filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
@@ -240,8 +208,4 @@ def download_aac(filename):
 
 # ---------- Run ----------
 if __name__ == "__main__":
-    socketio.run(
-        app,
-        host="0.0.0.0",
-        port=5000
-    )
+    socketio.run(app, host="0.0.0.0", port=5000)
