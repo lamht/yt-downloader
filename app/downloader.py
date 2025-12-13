@@ -1,44 +1,22 @@
 import os
 import glob
-import uuid
 import logging
-import traceback
 import subprocess
-from threading import Thread, Lock
 from urllib.parse import quote
 import tempfile
-
-from flask import Flask, render_template, request, redirect, flash, get_flashed_messages, jsonify, Response
-from flask_socketio import SocketIO
 
 import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
 
-# ---------- Logging ----------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("main")
+# ---------- Logger riêng cho file này ----------
+logger = logging.getLogger("downloader")  # tên logger là downloader
 logger.setLevel(logging.INFO)
-
-# ---------- Flask ----------
-app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
-
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
-
-# ---------- Download tracking ----------
-_downloads = {}
-_downloads_lock = Lock()
-
-def _new_download_key():
-    return uuid.uuid4().hex
-
-def _set_download(key: str, data: dict):
-    with _downloads_lock:
-        _downloads[key] = {**_downloads.get(key, {}), **data}
-
-def _get_download(key: str):
-    with _downloads_lock:
-        return _downloads.get(key)
+if not logger.hasHandlers():  # tránh add handlers nhiều lần khi import
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 # ---------- Cookie file from environment ----------
 _cookie_file_path = None
@@ -66,7 +44,6 @@ def _base_ydl_opts(extra: dict | None = None):
     opts = {
         "quiet": False,
         "no_warnings": False,
-        "logger": logger,
         #"user_agent": WINDOWS_UA,
         "retries": 3,
         "fragment_retries": 3,
@@ -108,12 +85,11 @@ def get_video_info(url: str):
                     "filesize": f.get("filesize") or f.get("filesize_approx"),
                     "tbr": f.get("tbr"),
                 })
-            logger.info("Found %d formats", len(formats))
+            logger.info("Found %d formats for %s", len(formats), title)
             return {"title": title, "formats": formats, "info": info}
     except Exception as e:
-        tb = traceback.format_exc()
-        logger.error("get_video_info failed: %s\n%s", e, tb)
-        raise RuntimeError(f"Failed to get video info: {e}\n{tb}")
+        logger.exception("get_video_info failed")
+        raise RuntimeError(f"Failed to get video info: {e}")
 
 def download_video(url: str, out_dir: str = "downloads", format_id: str | None = None, audio_only: bool = False):
     os.makedirs(out_dir, exist_ok=True)
@@ -164,7 +140,6 @@ def download_video(url: str, out_dir: str = "downloads", format_id: str | None =
 
     raise RuntimeError("Failed to download after all retries")
 
-# ---------- File processor ----------
 def process_file(src_path: str, dst_dir: str) -> str:
     DST_DIR = "/app/download"
     full_dir = os.path.join(DST_DIR, dst_dir)
