@@ -1,66 +1,99 @@
 import os
 import glob
-import yt_dlp
+import uuid
 import logging
 import traceback
+import subprocess
+from threading import Thread, Lock
+from urllib.parse import quote
+import tempfile
+
+from flask import Flask, render_template, request, redirect, flash, get_flashed_messages, jsonify, Response
+from flask_socketio import SocketIO
+
+import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
 
-logger = logging.getLogger("yt_downloader")
+# ---------- Logging ----------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("main")
 logger.setLevel(logging.INFO)
 
+# ---------- Flask ----------
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+
+# ---------- Download tracking ----------
+_downloads = {}
+_downloads_lock = Lock()
+
+def _new_download_key():
+    return uuid.uuid4().hex
+
+def _set_download(key: str, data: dict):
+    with _downloads_lock:
+        _downloads[key] = {**_downloads.get(key, {}), **data}
+
+def _get_download(key: str):
+    with _downloads_lock:
+        return _downloads.get(key)
+
+# ---------- Cookie file from environment ----------
+_cookie_file_path = None
+def _get_cookie_file():
+    global _cookie_file_path
+    if _cookie_file_path is None:
+        cookie_str = os.environ.get("COOKIE")
+        if cookie_str:
+            f = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8", suffix=".txt")
+            f.write(cookie_str)
+            f.flush()
+            f.close()
+            _cookie_file_path = f.name
+            logger.info("Cookie file created: %s", _cookie_file_path)
+    return _cookie_file_path
+
+# ---------- yt-dlp utils ----------
 WINDOWS_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Safari/537.36"
 )
 
-
 def _base_ydl_opts(extra: dict | None = None):
     opts = {
         "quiet": False,
         "no_warnings": False,
         "logger": logger,
-
-        # ===== USER AGENT WINDOWS =====
         "user_agent": WINDOWS_UA,
-
-        # ===== RETRY CONFIG =====
         "retries": 3,
         "fragment_retries": 3,
         "extractor_retries": 3,
-
-        # sleep: 2s, 4s, 6s
         "retry_sleep_functions": {
             "http": lambda n: 2 * n,
             "fragment": lambda n: 2 * n,
             "extractor": lambda n: 2 * n,
         },
-
-        # ===== NETWORK HARDEN =====
         "socket_timeout": 30,
         "nocheckcertificate": True,
         "geo_bypass": True,
     }
-
     if extra:
         opts.update(extra)
     return opts
 
-
 def get_video_info(url: str):
-    """
-    Return video meta and available formats without downloading.
-    """
-    ydl_opts = _base_ydl_opts({
-        "noplaylist": True,
-    })
-
+    """Inspect video formats"""
+    ydl_opts = _base_ydl_opts({"noplaylist": True})
+    cookie_file = _get_cookie_file()
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             title = info.get("title") or "download"
-
             formats = []
             for f in info.get("formats", []):
                 formats.append({
@@ -75,116 +108,159 @@ def get_video_info(url: str):
                     "filesize": f.get("filesize") or f.get("filesize_approx"),
                     "tbr": f.get("tbr"),
                 })
-
             logger.info("Found %d formats", len(formats))
-            return {
-                "title": title,
-                "formats": formats,
-                "info": info,
-            }
-
+            return {"title": title, "formats": formats, "info": info}
     except Exception as e:
         tb = traceback.format_exc()
         logger.error("get_video_info failed: %s\n%s", e, tb)
         raise RuntimeError(f"Failed to get video info: {e}\n{tb}")
 
-
-def download_video(
-    url: str,
-    out_dir: str = "downloads",
-    format_id: str | None = None,
-    audio_only: bool = False,
-):
+def download_video(url: str, out_dir: str = "downloads", format_id: str | None = None, audio_only: bool = False):
     os.makedirs(out_dir, exist_ok=True)
-    logger.info(
-        "download_video called format_id=%s audio_only=%s",
-        format_id,
-        audio_only,
-    )
+    logger.info("download_video called format_id=%s audio_only=%s", format_id, audio_only)
+    cookie_file = _get_cookie_file()
 
-    # ================= FORMAT ID =================
+    # ---------- determine ydl options ----------
+    try_opts_list = []
+
     if format_id:
-        ydl_opts = _base_ydl_opts({
-            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-            "format": format_id,
-            "noplaylist": True,
-        })
-
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get("title") or "download"
-
-                pattern = os.path.join(out_dir, f"{title}.*")
-                matches = glob.glob(pattern)
-                filepath = (
-                    max(matches, key=os.path.getctime)
-                    if matches
-                    else ydl.prepare_filename(info)
-                )
-
-                logger.info("Downloaded: %s", filepath)
-                return {"title": title, "filepath": filepath}
-
-        except Exception as e:
-            tb = traceback.format_exc()
-            logger.error("Download failed: %s\n%s", e, tb)
-            raise RuntimeError(f"Failed to download: {e}\n{tb}")
-
-    # ================= AUDIO ONLY =================
-    if audio_only:
-        ydl_opts = _base_ydl_opts({
+        opts = _base_ydl_opts({"outtmpl": f"{out_dir}/%(title)s.%(ext)s", "format": format_id, "noplaylist": True})
+        if cookie_file:
+            opts["cookiefile"] = cookie_file
+        try_opts_list = [opts]
+    elif audio_only:
+        opts = _base_ydl_opts({
             "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
             "format": "bestaudio/best",
             "noplaylist": True,
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "aac",
-                    "preferredquality": "192",
-                }
-            ],
+            "postprocessors": [{"key": "FFmpegExtractAudio","preferredcodec": "aac","preferredquality": "192"}],
         })
-        try_opts_list = [ydl_opts]
-
-    # ================= VIDEO =================
+        if cookie_file:
+            opts["cookiefile"] = cookie_file
+        try_opts_list = [opts]
     else:
-        video_opts = _base_ydl_opts({
-            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-            "format": "bestvideo+bestaudio/best",
-            "merge_output_format": "mp4",
-            "noplaylist": True,
-        })
-
-        fallback_opts = _base_ydl_opts({
-            "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-            "format": "best",
-            "noplaylist": True,
-        })
-
+        video_opts = _base_ydl_opts({"outtmpl": f"{out_dir}/%(title)s.%(ext)s","format": "bestvideo+bestaudio/best","merge_output_format": "mp4","noplaylist": True})
+        fallback_opts = _base_ydl_opts({"outtmpl": f"{out_dir}/%(title)s.%(ext)s","format": "best","noplaylist": True})
+        if cookie_file:
+            video_opts["cookiefile"] = cookie_file
+            fallback_opts["cookiefile"] = cookie_file
         try_opts_list = [video_opts, fallback_opts]
 
-    # ================= DOWNLOAD LOOP =================
+    # ---------- download loop ----------
     for ydl_opts in try_opts_list:
         try:
             logger.info("Trying format: %s", ydl_opts.get("format"))
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get("title") or "download"
-
                 pattern = os.path.join(out_dir, f"{title}.*")
                 matches = glob.glob(pattern)
-                filepath = (
-                    max(matches, key=os.path.getctime)
-                    if matches
-                    else ydl.prepare_filename(info)
-                )
-
+                filepath = max(matches, key=os.path.getctime) if matches else ydl.prepare_filename(info)
                 logger.info("Downloaded: %s", filepath)
                 return {"title": title, "filepath": filepath}
-
         except (DownloadError, ExtractorError, Exception) as e:
             logger.warning("Attempt failed: %s", e)
             continue
 
     raise RuntimeError("Failed to download after all retries")
+
+# ---------- File processor ----------
+def process_file(src_path: str, dst_dir: str) -> str:
+    DST_DIR = "/app/download"
+    full_dir = os.path.join(DST_DIR, dst_dir)
+    os.makedirs(full_dir, exist_ok=True)
+
+    filename = os.path.basename(src_path)
+    name, ext = os.path.splitext(filename)
+    name = quote(name[:100])
+    ext = ext.lower()
+
+    if ext == ".mp4":
+        dst = os.path.join(full_dir, f"{name}.aac")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst]
+    elif ext == ".m4a":
+        dst = os.path.join(full_dir, f"{name}.aac")
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+    elif ext in (".opus", ".webm"):
+        dst = os.path.join(full_dir, f"{name}.mp3")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst]
+    else:
+        dst = os.path.join(full_dir, f"{name}{ext}")
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        logger.error("ffmpeg failed: %s", proc.stderr)
+        raise RuntimeError(proc.stderr)
+    return dst
+
+# ---------- Routes ----------
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/inspect", methods=["POST"])
+def inspect_api():
+    url = request.json.get("url")
+    if not url:
+        return jsonify({"error": "Missing URL"}), 400
+    try:
+        info = get_video_info(url)
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/download", methods=["POST"])
+def download_api():
+    url = request.json.get("url")
+    format_id = request.json.get("format_id")
+    audio_only = request.json.get("audio_only") == True
+    if not url:
+        return jsonify({"error": "Missing URL"}), 400
+    key = _new_download_key()
+    _set_download(key, {"status": "queued", "title": url})
+    socketio.emit("download_started", {"key": key, "title": url, "message": "Queued"})
+
+    def bg_download(k, u, fmt, audio):
+        try:
+            _set_download(k, {"status": "downloading"})
+            socketio.emit("download_status", {"key": k, "status": "downloading","message":"Starting download..."})
+            result = download_video(u, format_id=fmt, audio_only=audio)
+            tmp = result["filepath"]
+            socketio.emit("download_status", {"key": k,"status":"downloaded","message":"Download complete. Processing..."})
+            final_path = process_file(tmp, "aac")
+            _set_download(k, {"status": "done", "filepath": final_path})
+            file_name = quote(os.path.basename(final_path))
+            download_url = f"/download/aac/{file_name}"
+            socketio.emit("download_complete", {"key": k,"status":"success","download_url": download_url,"title": result.get("title"),"message":"Ready"})
+        except Exception as e:
+            tb = traceback.format_exc()
+            logger.error("Background error: %s\n%s", e, tb)
+            _set_download(k, {"status":"error","error": str(e)})
+            socketio.emit("download_complete", {"key": k,"status":"error","message": str(e)})
+
+    Thread(target=bg_download, daemon=True, args=(key, url, format_id, audio_only)).start()
+    return jsonify({"status": "queued", "key": key})
+
+@app.route("/download/aac/<path:filename>")
+def download_aac(filename):
+    DST_DIR = "/app/download/aac"
+    path = os.path.join(DST_DIR, filename)
+    if not os.path.exists(path):
+        return "File not found", 404
+    ascii_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
+    file_size = os.path.getsize(path)
+    headers = {
+        "Content-Disposition": f"attachment; filename='{ascii_filename}'; filename*=UTF-8''{filename}",
+        "Content-Length": str(file_size),
+        "Content-Type": "application/octet-stream"
+    }
+    def generate():
+        with open(path, "rb") as f:
+            while chunk := f.read(8192):
+                yield chunk
+    return Response(generate(), headers=headers)
+
+# ---------- Run ----------
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000)
