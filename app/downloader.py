@@ -5,7 +5,6 @@ import subprocess
 from urllib.parse import quote
 import tempfile
 import sys
-# main.py
 from flask import Flask
 from flask_socketio import SocketIO
 from log_config import setup_logger
