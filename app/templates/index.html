@@ -120,6 +120,9 @@
       flex-direction: column;
       gap: 8px;
       margin-top: 16px;
+      min-height: 40px; /* luôn hiện */
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 8px;
     }
 
     .dl-row {
@@ -219,8 +222,9 @@
         </div>
       </form>
 
-      <div id="formatsPanel" class="panel" style="display:none">
-        <h3 id="videoTitle"></h3>
+      <!-- formatsPanel luôn hiện -->
+      <div id="formatsPanel" class="panel">
+        <h3 id="videoTitle">Paste URL để xem formats</h3>
         <div id="formatsList"></div>
 
         <div class="sticky-actions">
@@ -230,13 +234,16 @@
           <button id="downloadBtn">⬇ Download Selected</button>
         </div>
 
-        <div id="downloadList" aria-live="polite"></div>
+        <!-- download list luôn hiện -->
+        <div id="downloadList" aria-live="polite">
+          <!-- trống lúc đầu, hiển thị download queue -->
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // ==== Script gốc giữ nguyên logic, thêm highlight card ====
+    // ==== Script giữ nguyên logic ====
     let socket = null;
     const downloadsMap = {};
     const myDownloadKeys = new Set();
@@ -275,7 +282,6 @@
       if (idleTimeout) clearTimeout(idleTimeout);
       idleTimeout = setTimeout(() => {
         if (socket) {
-          console.log('No activity for 5 minutes, disconnecting socket.');
           socket.disconnect();
           socket = null;
           showToast('Disconnected due to inactivity', true);
@@ -286,46 +292,32 @@
     function initSocket() {
       if (socket) return;
       socket = io({ timeout: 5000, reconnectionAttempts: 3 });
-
-      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
-        window.addEventListener(evt, resetIdleTimer, true);
-      });
-
+      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => window.addEventListener(evt, resetIdleTimer, true));
       socket.on('connect', () => resetIdleTimer());
       socket.on('connect_error', () => showToast('Socket connection failed', true));
       socket.on('disconnect', () => showToast('Socket disconnected', true));
-
       socket.on('download_started', data => {
         if (!data || !data.key) return;
         myDownloadKeys.add(data.key);
         createRow(data.key, data.title);
         setStatus(data.key, data.message || 'Queued');
       });
-
       socket.on('download_status', data => {
         if (!data || !myDownloadKeys.has(data.key)) return;
         setStatus(data.key, data.message || data.status || '...');
       });
-
       socket.on('download_complete', data => {
         if (!data || !myDownloadKeys.has(data.key)) return;
-        if (!downloadsMap[data.key]) {
-          createRow(data.key, data.title);
-        }
-
+        if (!downloadsMap[data.key]) createRow(data.key, data.title);
         if (data.status === 'done' && data.download_url) {
           const url = data.download_url;
           const fname = decodeURIComponent(url.split('/').pop());
-          setStatus(
-            data.key,
-            `<a class="dl-link" href="${url}" download="${fname}">⬇ Download</a>`
-          );
+          setStatus(data.key, `<a class="dl-link" href="${url}" download="${fname}">⬇ Download</a>`);
           showToast(data.message || 'Ready');
         } else {
           setStatus(data.key, `Error: ${data.message || 'failed'}`);
           showToast(data.message || 'Download failed', true);
         }
-
         myDownloadKeys.delete(data.key);
       });
     }
@@ -340,28 +332,22 @@
         e.preventDefault();
         const url = inspectForm.url.value.trim();
         if (!url) return showToast('URL required', true);
-
         try {
           const res = await fetch('/inspect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
           });
-
           if (!res.ok) {
             const err = await res.json();
             throw new Error(err.error || 'Inspect failed');
           }
-
           const data = await res.json();
           currentUrl = url;
           selectedFormat = null;
           formatsList.innerHTML = '';
-
           if (data.title) document.getElementById('videoTitle').textContent = data.title;
-
           if (data.formats && data.formats.length > 0) {
-            document.getElementById('formatsPanel').style.display = 'block';
             data.formats.forEach(f => {
               const row = document.createElement('label');
               row.className = 'fmt-row';
@@ -369,22 +355,18 @@
                 <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
                 <div class="fmt-meta">
                   <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                  <div class="muted">${f.vcodec && f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec && f.acodec!=="none"?f.acodec:'no audio'}</div>
+                  <div class="muted">${(f.vcodec || 'none')!=="none"?f.vcodec:'audio'} / ${(f.acodec || 'none')!=="none"?f.acodec:'no audio'}</div>
                 </div>
               `;
               const inputEl = row.querySelector('input');
               inputEl.addEventListener('change', () => {
                 selectedFormat = f.format_id;
-                // remove highlight from all
                 formatsList.querySelectorAll('.fmt-row').forEach(r => r.classList.remove('selected'));
                 row.classList.add('selected');
               });
               formatsList.appendChild(row);
             });
-          } else {
-            document.getElementById('formatsPanel').style.display = 'none';
           }
-
         } catch (err) {
           console.error(err);
           showToast(err.message, true);
@@ -394,10 +376,8 @@
       downloadBtn.addEventListener('click', async e => {
         if (!currentUrl) return showToast('Paste URL first', true);
         if (!selectedFormat) return showToast('Select format', true);
-
         initSocket();
         downloadBtn.disabled = true;
-
         try {
           const res = await fetch('/download', {
             method: 'POST',
@@ -408,12 +388,10 @@
               audio_only: audioOnly.checked ? 1 : 0
             })
           });
-
           if (!res.ok) {
             const err = await res.json();
             throw new Error(err.error || 'Queue failed');
           }
-
           const data = await res.json();
           if (data.key) myDownloadKeys.add(data.key);
           showToast('Download queued');
