@@ -21,15 +21,10 @@ from log_config import setup_logger
 logger = setup_logger("main")
 
 logger.info("Logger for main initialized")
-
-app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 from downloader import download_video, get_video_info
 
 
 # ---------- Setup ----------
-logging.basicConfig(level=logging.INFO)
-
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 
