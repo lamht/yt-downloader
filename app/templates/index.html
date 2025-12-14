@@ -321,7 +321,6 @@
       socket.on('download_started', data => {
         if (!data || !data.key) return;
         myDownloadKeys.add(data.key);
-        createRow(data.key, data.title);
         setStatus(data.key, data.message || 'Queued');
       });
       socket.on('download_status', data => {
@@ -415,7 +414,10 @@
             throw new Error(err.error || 'Queue failed');
           }
           const data = await res.json();
-          if (data.key) myDownloadKeys.add(data.key);
+          if (data.key) {
+            createRow(data.key, data.title);
+            myDownloadKeys.add(data.key);
+          }
           showToast('Download queued');
         } catch (err) {
           console.error(err);
