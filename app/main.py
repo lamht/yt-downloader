@@ -2,6 +2,7 @@ import eventlet
 eventlet.monkey_patch()
 
 import os
+import asyncio
 import uuid
 import logging
 import traceback
@@ -127,6 +128,7 @@ def download():
     })
 
     def bg_download():
+        asyncio.sleep(2)
         try:
             _set(key, {"status": "downloading"})
             socketio.emit("download_status", {
