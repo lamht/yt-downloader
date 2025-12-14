@@ -2,20 +2,18 @@ import eventlet
 eventlet.monkey_patch()
 
 import os
-import asyncio
+import time
 import uuid
 import logging
 import traceback
 import subprocess
-from threading import Thread, Lock
+from threading import Lock
 from urllib.parse import quote
 
 from flask import (
     Flask, request, jsonify,
     send_from_directory, Response, make_response
 )
-from flask_socketio import SocketIO
-from flask import Flask
 from flask_socketio import SocketIO
 from log_config import setup_logger
 
@@ -82,7 +80,6 @@ def process_file(src_path: str, dst_dir: str) -> str:
 
 # ---------- Routes ----------
 
-# / → index.html
 @app.route("/")
 def index():
     response = make_response(send_from_directory("templates", "index.html"))
@@ -91,7 +88,6 @@ def index():
     response.headers['Expires'] = '0'
     return response
 
-# /inspect → JSON
 @app.route("/inspect", methods=["POST"])
 def inspect():
     data = request.json or request.form
@@ -107,7 +103,6 @@ def inspect():
         "formats": info.get("formats", [])
     })
 
-# /download → JSON + socket
 @app.route("/download", methods=["POST"])
 def download():
     data = request.json or request.form
@@ -128,7 +123,7 @@ def download():
     })
 
     def bg_download():
-        asyncio.sleep(2)
+        time.sleep(2)  # <-- sửa từ asyncio.sleep(2) thành time.sleep(2)
         try:
             _set(key, {"status": "downloading"})
             socketio.emit("download_status", {
@@ -173,7 +168,6 @@ def download():
                 "message": str(e)
             })
 
-    #Thread(target=bg_download, daemon=True).start()
     socketio.start_background_task(bg_download)
 
     return jsonify({
@@ -181,7 +175,6 @@ def download():
         "status": "queued"
     })
 
-# ---------- GIỮ NGUYÊN 100% ----------
 @app.route("/download/aac/<path:filename>")
 def download_aac(filename):
     DST_DIR = "/app/download/aac"
