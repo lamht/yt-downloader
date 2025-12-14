@@ -15,6 +15,7 @@
       --panel: #071427;
       --dl-bg: rgba(11, 18, 32, 0.95);
       --toast-bg: rgba(7, 18, 39, 0.95);
+      --selected-bg: rgba(239, 68, 68, 0.2);
     }
 
     html,
@@ -27,38 +28,52 @@
     }
 
     .wrap {
-      max-width: 1100px;
-      margin: 28px auto;
-      padding: 20px;
+      max-width: 500px;
+      margin: 16px auto;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 8px;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      margin: 0 0 8px;
+      word-break: break-word;
     }
 
     .panel {
       background: var(--panel);
-      padding: 18px;
+      padding: 16px;
       border-radius: 12px;
+      margin-bottom: 16px;
     }
 
     .input-row {
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .input-row input[type=text] {
-      flex: 1;
       padding: 10px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.04);
       background: transparent;
       color: inherit;
+      font-size: 1rem;
     }
 
     .input-row button {
-      padding: 10px 12px;
+      padding: 10px;
       border-radius: 8px;
       background: var(--accent);
       border: none;
       color: #fff;
       cursor: pointer;
+      font-size: 1rem;
       transition: 0.2s;
     }
 
@@ -66,37 +81,67 @@
       opacity: 0.9;
     }
 
-    #downloadList {
-      position: fixed;
-      left: 18px;
-      bottom: 18px;
-      z-index: 1200;
+    #formatsList {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      max-width: 90%;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .fmt-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--dl-bg);
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .fmt-row.selected {
+      border-color: var(--accent);
+      background: var(--selected-bg);
+    }
+
+    .fmt-row input {
+      flex-shrink: 0;
+    }
+
+    .fmt-meta {
+      flex: 1;
+      font-size: 0.9rem;
+      word-break: break-word;
+    }
+
+    #downloadList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
     }
 
     .dl-row {
       background: var(--dl-bg);
       padding: 10px;
       border-radius: 8px;
-      min-width: 300px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      word-break: break-word;
     }
 
     .dl-title {
       font-weight: 700;
+      font-size: 0.95rem;
       white-space: nowrap;
-      text-overflow: ellipsis;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .dl-status {
       color: var(--muted);
-      margin-top: 6px;
-      font-size: 0.9rem;
-      word-break: break-word;
+      margin-top: 4px;
+      font-size: 0.85rem;
     }
 
     a.dl-link {
@@ -105,48 +150,22 @@
       text-decoration: none;
     }
 
-    .fmt-row {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding: 8px;
-      border-radius: 8px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
-      border: 1px solid rgba(255, 255, 255, 0.02);
-      cursor: pointer;
-      transition: 0.15s;
-    }
-
-    .fmt-row:hover {
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .fmt-meta {
-      flex: 1;
-    }
-
     .sticky-actions {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--dl-bg);
-      padding: 12px 20px;
       display: flex;
-      gap: 8px;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      z-index: 1100;
       flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
     }
 
     .sticky-actions label {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       color: var(--muted);
-      margin-right: auto;
       cursor: pointer;
+      font-size: 0.9rem;
     }
 
     .sticky-actions button {
@@ -157,7 +176,7 @@
       border: none;
       cursor: pointer;
       transition: 0.2s;
-      z-index: 1200;
+      font-size: 0.95rem;
     }
 
     .sticky-actions button:hover {
@@ -166,8 +185,8 @@
 
     .toast {
       position: fixed;
-      right: 18px;
-      top: 18px;
+      right: 12px;
+      top: 12px;
       background: var(--toast-bg);
       color: #e6eef6;
       padding: 10px 14px;
@@ -176,15 +195,23 @@
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
       opacity: 0.95;
       transition: 0.3s;
+      font-size: 0.9rem;
+    }
+
+    @media(min-width:600px){
+      .wrap { max-width: 600px; }
+      h1 { font-size: 1.75rem; }
+      .input-row { flex-direction: row; }
+      .input-row input { flex:1; }
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="panel" style="margin-bottom:16px">
-      <h1 style="margin:0 0 8px">YouTube Downloader</h1>
-      <form id="inspectForm" method="POST" style="margin-bottom:8px">
+    <div class="panel">
+      <h1>YouTube Downloader</h1>
+      <form id="inspectForm" method="POST">
         <input type="hidden" name="action" value="inspect" />
         <div class="input-row">
           <input type="text" name="url" placeholder="Paste YouTube URL" required />
@@ -194,23 +221,22 @@
 
       <div id="formatsPanel" class="panel" style="display:none">
         <h3 id="videoTitle"></h3>
-        <div id="formatsList"
-          style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;margin-bottom:12px"></div>
+        <div id="formatsList"></div>
+
+        <div class="sticky-actions">
+          <label>
+            <input type="checkbox" id="audioOnly" /> MP3 only
+          </label>
+          <button id="downloadBtn">⬇ Download Selected</button>
+        </div>
+
+        <div id="downloadList" aria-live="polite"></div>
       </div>
     </div>
   </div>
 
-  <div id="downloadList" aria-live="polite"></div>
-
-  <!-- Luôn hiển thị download button -->
-  <div class="sticky-actions" id="stickyBar" style="display:flex">
-    <label>
-      <input type="checkbox" id="audioOnly" /> MP3 only
-    </label>
-    <button id="downloadBtn">⬇ Download Selected</button>
-  </div>
-
   <script>
+    // ==== Script gốc giữ nguyên logic, thêm highlight card ====
     let socket = null;
     const downloadsMap = {};
     const myDownloadKeys = new Set();
@@ -310,10 +336,6 @@
       const formatsList = document.getElementById('formatsList');
       const audioOnly = document.getElementById('audioOnly');
 
-      // Sticky bar luôn hiển thị
-      const stickyBar = document.getElementById('stickyBar');
-      stickyBar.style.display = 'flex';
-
       inspectForm.addEventListener('submit', async e => {
         e.preventDefault();
         const url = inspectForm.url.value.trim();
@@ -339,6 +361,7 @@
           if (data.title) document.getElementById('videoTitle').textContent = data.title;
 
           if (data.formats && data.formats.length > 0) {
+            document.getElementById('formatsPanel').style.display = 'block';
             data.formats.forEach(f => {
               const row = document.createElement('label');
               row.className = 'fmt-row';
@@ -346,14 +369,22 @@
                 <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
                 <div class="fmt-meta">
                   <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                  <div class="muted">${f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec!=="none"?f.acodec:'no audio'}</div>
+                  <div class="muted">${f.vcodec && f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec && f.acodec!=="none"?f.acodec:'no audio'}</div>
                 </div>
               `;
-              // Luôn cập nhật selectedFormat khi radio được chọn
-              row.querySelector('input').addEventListener('change', () => selectedFormat = f.format_id);
+              const inputEl = row.querySelector('input');
+              inputEl.addEventListener('change', () => {
+                selectedFormat = f.format_id;
+                // remove highlight from all
+                formatsList.querySelectorAll('.fmt-row').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+              });
               formatsList.appendChild(row);
             });
+          } else {
+            document.getElementById('formatsPanel').style.display = 'none';
           }
+
         } catch (err) {
           console.error(err);
           showToast(err.message, true);
@@ -396,4 +427,5 @@
     });
   </script>
 </body>
+
 </html>
