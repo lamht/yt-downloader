@@ -4,16 +4,21 @@ import logging
 import subprocess
 from urllib.parse import quote
 import tempfile
+import sys
 
 import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
 
 # ---------- Logger riêng cho file này ----------
-logger = logging.getLogger("downloader")  # tên logger là downloader
+class FlushStreamHandler(logging.StreamHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()  # đảm bảo mỗi log được flush ngay
+
+logger = logging.getLogger("downloader")
 logger.setLevel(logging.INFO)
-if not logger.hasHandlers():  # tránh add handlers nhiều lần khi import
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+if not logger.hasHandlers():
+    ch = FlushStreamHandler(sys.stdout)
     formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
