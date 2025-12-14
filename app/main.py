@@ -169,8 +169,8 @@ def download():
                 "message": str(e)
             })
 
-    Thread(target=bg_download, daemon=True).start()
-    # (có thể đổi thành socketio.start_background_task(bg_download))
+    #Thread(target=bg_download, daemon=True).start()
+    socketio.start_background_task(bg_download))
 
     return jsonify({
         "key": key,
