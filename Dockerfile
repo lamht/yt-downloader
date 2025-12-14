@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps (chỉ giữ cái cần)
+# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
@@ -17,6 +17,10 @@ RUN pip install --upgrade pip \
 # App source
 COPY . .
 
+# Env for unbuffered stdout
+ENV PYTHONUNBUFFERED=1
+
 EXPOSE 5000
 
-CMD ["python", "app/main.py"]
+# Run Python unbuffered
+CMD ["python", "-u", "app/main.py"]
