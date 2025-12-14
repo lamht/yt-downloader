@@ -81,11 +81,24 @@
       opacity: 0.9;
     }
 
+    /* ==== Formats list with scroll ==== */
     #formatsList {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-top: 8px;
+      max-height: 300px; /* scrollable height */
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    #formatsList::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #formatsList::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
     }
 
     .fmt-row {
@@ -115,13 +128,14 @@
       word-break: break-word;
     }
 
+    /* Download list always visible */
     #downloadList {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-top: 16px;
-      min-height: 40px; /* luôn hiện */
-      border-top: 1px solid rgba(255,255,255,0.1);
+      min-height: 40px; /* always visible */
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
       padding-top: 8px;
     }
 
@@ -201,11 +215,19 @@
       font-size: 0.9rem;
     }
 
-    @media(min-width:600px){
-      .wrap { max-width: 600px; }
-      h1 { font-size: 1.75rem; }
-      .input-row { flex-direction: row; }
-      .input-row input { flex:1; }
+    @media(min-width:600px) {
+      .wrap {
+        max-width: 600px;
+      }
+      h1 {
+        font-size: 1.75rem;
+      }
+      .input-row {
+        flex-direction: row;
+      }
+      .input-row input {
+        flex: 1;
+      }
     }
   </style>
 </head>
@@ -222,7 +244,7 @@
         </div>
       </form>
 
-      <!-- formatsPanel luôn hiện -->
+      <!-- formatsPanel luôn hiển thị -->
       <div id="formatsPanel" class="panel">
         <h3 id="videoTitle">Paste URL để xem formats</h3>
         <div id="formatsList"></div>
