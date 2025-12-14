@@ -69,13 +69,12 @@
     #downloadList {
       position: fixed;
       left: 18px;
-      bottom: 100px; /* nâng lên để không che sticky bar */
+      bottom: 18px;
       z-index: 1200;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-height: calc(100vh - 120px);
-      overflow-y: auto;
+      max-width: 90%;
     }
 
     .dl-row {
@@ -84,7 +83,6 @@
       border-radius: 8px;
       min-width: 300px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-      word-break: break-word;
     }
 
     .dl-title {
@@ -98,6 +96,7 @@
       color: var(--muted);
       margin-top: 6px;
       font-size: 0.9rem;
+      word-break: break-word;
     }
 
     a.dl-link {
@@ -137,7 +136,7 @@
       gap: 8px;
       justify-content: center;
       align-items: center;
-      z-index: 1300; /* nổi trên download list */
+      z-index: 1100;
       flex-wrap: wrap;
     }
 
@@ -158,6 +157,7 @@
       border: none;
       cursor: pointer;
       transition: 0.2s;
+      z-index: 1200;
     }
 
     .sticky-actions button:hover {
@@ -176,19 +176,6 @@
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
       opacity: 0.95;
       transition: 0.3s;
-    }
-
-    @media (max-width: 600px) {
-      #downloadList {
-        left: 8px;
-        right: 8px;
-        bottom: 120px;
-        min-width: auto;
-      }
-
-      .sticky-actions {
-        padding: 10px;
-      }
     }
   </style>
 </head>
@@ -228,6 +215,7 @@
     const myDownloadKeys = new Set();
     let currentUrl = null;
     let selectedFormat = null;
+    let idleTimeout = null;
 
     function showToast(msg, err = false) {
       if (!msg) return;
@@ -256,10 +244,28 @@
       if (el) el.innerHTML = html;
     }
 
+    function resetIdleTimer() {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        if (socket) {
+          console.log('No activity for 5 minutes, disconnecting socket.');
+          socket.disconnect();
+          socket = null;
+          showToast('Disconnected due to inactivity', true);
+        }
+      }, 300000); // 5 phút
+    }
+
     function initSocket() {
       if (socket) return;
       socket = io({ timeout: 5000, reconnectionAttempts: 3 });
 
+      // Reset idle timer khi có activity
+      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+        window.addEventListener(evt, resetIdleTimer, true);
+      });
+
+      socket.on('connect', () => resetIdleTimer());
       socket.on('connect_error', () => showToast('Socket connection failed', true));
       socket.on('disconnect', () => showToast('Socket disconnected', true));
 
@@ -278,9 +284,9 @@
       socket.on('download_complete', data => {
         if (!data || !myDownloadKeys.has(data.key)) return;
 
-        const url = data.download_url || '#';
-        const fname = url !== '#' ? decodeURIComponent(url.split('/').pop()) : 'download';
-        if (data.status === 'done') {
+        if (data.status === 'done' && data.download_url) {
+          const url = data.download_url;
+          const fname = decodeURIComponent(url.split('/').pop());
           setStatus(
             data.key,
             `<a class="dl-link" href="${url}" download="${fname}">⬇ Download</a>`
@@ -385,5 +391,4 @@
     });
   </script>
 </body>
-
 </html>
