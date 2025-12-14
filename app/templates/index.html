@@ -23,24 +23,24 @@
       margin: 0;
       font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
       background: var(--bg);
-      color: #e6eef6
+      color: #e6eef6;
     }
 
     .wrap {
       max-width: 1100px;
       margin: 28px auto;
-      padding: 20px
+      padding: 20px;
     }
 
     .panel {
       background: var(--panel);
       padding: 18px;
-      border-radius: 12px
+      border-radius: 12px;
     }
 
     .input-row {
       display: flex;
-      gap: 10px
+      gap: 10px;
     }
 
     .input-row input[type=text] {
@@ -49,7 +49,7 @@
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.04);
       background: transparent;
-      color: inherit
+      color: inherit;
     }
 
     .input-row button {
@@ -59,21 +59,23 @@
       border: none;
       color: #fff;
       cursor: pointer;
-      transition: 0.2s
+      transition: 0.2s;
     }
 
     .input-row button:hover {
-      opacity: 0.9
+      opacity: 0.9;
     }
 
     #downloadList {
       position: fixed;
       left: 18px;
-      bottom: 18px;
+      bottom: 100px; /* nâng lên để không che sticky bar */
       z-index: 1200;
       display: flex;
       flex-direction: column;
-      gap: 10px
+      gap: 10px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
     }
 
     .dl-row {
@@ -81,26 +83,27 @@
       padding: 10px;
       border-radius: 8px;
       min-width: 300px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5)
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      word-break: break-word;
     }
 
     .dl-title {
       font-weight: 700;
       white-space: nowrap;
       text-overflow: ellipsis;
-      overflow: hidden
+      overflow: hidden;
     }
 
     .dl-status {
       color: var(--muted);
       margin-top: 6px;
-      font-size: 0.9rem
+      font-size: 0.9rem;
     }
 
     a.dl-link {
       color: #7dd3fc;
       font-weight: 700;
-      text-decoration: none
+      text-decoration: none;
     }
 
     .fmt-row {
@@ -112,15 +115,15 @@
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
       border: 1px solid rgba(255, 255, 255, 0.02);
       cursor: pointer;
-      transition: 0.15s
+      transition: 0.15s;
     }
 
     .fmt-row:hover {
-      background: rgba(255, 255, 255, 0.05)
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .fmt-meta {
-      flex: 1
+      flex: 1;
     }
 
     .sticky-actions {
@@ -134,8 +137,8 @@
       gap: 8px;
       justify-content: center;
       align-items: center;
-      z-index: 100;
-      flex-wrap: wrap
+      z-index: 1300; /* nổi trên download list */
+      flex-wrap: wrap;
     }
 
     .sticky-actions label {
@@ -144,7 +147,7 @@
       gap: 8px;
       color: var(--muted);
       margin-right: auto;
-      cursor: pointer
+      cursor: pointer;
     }
 
     .sticky-actions button {
@@ -154,11 +157,11 @@
       padding: 10px 14px;
       border: none;
       cursor: pointer;
-      transition: 0.2s
+      transition: 0.2s;
     }
 
     .sticky-actions button:hover {
-      opacity: 0.9
+      opacity: 0.9;
     }
 
     .toast {
@@ -172,7 +175,20 @@
       z-index: 2000;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
       opacity: 0.95;
-      transition: 0.3s
+      transition: 0.3s;
+    }
+
+    @media (max-width: 600px) {
+      #downloadList {
+        left: 8px;
+        right: 8px;
+        bottom: 120px;
+        min-width: auto;
+      }
+
+      .sticky-actions {
+        padding: 10px;
+      }
     }
   </style>
 </head>
@@ -262,9 +278,9 @@
       socket.on('download_complete', data => {
         if (!data || !myDownloadKeys.has(data.key)) return;
 
-        if (data.status === 'done' && data.download_url) {
-          const url = data.download_url;
-          const fname = decodeURIComponent(url.split('/').pop());
+        const url = data.download_url || '#';
+        const fname = url !== '#' ? decodeURIComponent(url.split('/').pop()) : 'download';
+        if (data.status === 'done') {
           setStatus(
             data.key,
             `<a class="dl-link" href="${url}" download="${fname}">⬇ Download</a>`
@@ -276,14 +292,6 @@
         }
 
         myDownloadKeys.delete(data.key);
-        if (myDownloadKeys.size === 0) {
-          setTimeout(() => {
-            if (myDownloadKeys.size === 0 && socket) {
-              //socket.disconnect();
-              //socket = null;
-            }
-          }, 5000);  // chờ 5s để chắc chắn event khác đã đến
-        }
       });
     }
 
@@ -377,4 +385,5 @@
     });
   </script>
 </body>
+
 </html>
