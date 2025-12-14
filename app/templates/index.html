@@ -66,43 +66,13 @@
       opacity: 0.9;
     }
 
-    #downloadList {
-      position: fixed;
-      left: 18px;
-      bottom: 18px;
-      z-index: 1200;
+    #formatsList {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      max-width: 90%;
-    }
-
-    .dl-row {
-      background: var(--dl-bg);
-      padding: 10px;
-      border-radius: 8px;
-      min-width: 300px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-    }
-
-    .dl-title {
-      font-weight: 700;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
-    }
-
-    .dl-status {
-      color: var(--muted);
-      margin-top: 6px;
-      font-size: 0.9rem;
-      word-break: break-word;
-    }
-
-    a.dl-link {
-      color: #7dd3fc;
-      font-weight: 700;
-      text-decoration: none;
+      gap: 8px;
+      max-height: 360px;
+      overflow: auto;
+      margin-bottom: 12px;
     }
 
     .fmt-row {
@@ -149,7 +119,8 @@
       cursor: pointer;
     }
 
-    .sticky-actions button {
+    .sticky-actions button,
+    .sticky-actions a#downloadLink {
       background: var(--accent);
       color: #fff;
       border-radius: 8px;
@@ -157,10 +128,16 @@
       border: none;
       cursor: pointer;
       transition: 0.2s;
-      z-index: 1200;
+      text-decoration: none;
+      display: inline-block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
 
-    .sticky-actions button:hover {
+    .sticky-actions button:hover,
+    .sticky-actions a#downloadLink:hover {
       opacity: 0.9;
     }
 
@@ -194,25 +171,21 @@
 
       <div id="formatsPanel" class="panel" style="display:none">
         <h3 id="videoTitle"></h3>
-        <div id="formatsList"
-          style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;margin-bottom:12px"></div>
+        <div id="formatsList"></div>
       </div>
     </div>
   </div>
-
-  <div id="downloadList" aria-live="polite"></div>
 
   <div class="sticky-actions" id="stickyBar" style="display:none">
     <label>
       <input type="checkbox" id="audioOnly" /> MP3 only
     </label>
     <button id="downloadBtn">⬇ Download Selected</button>
+    <a id="downloadLink" href="#" style="display:none;"></a>
   </div>
 
   <script>
     let socket = null;
-    const downloadsMap = {};
-    const myDownloadKeys = new Set();
     let currentUrl = null;
     let selectedFormat = null;
     let idleTimeout = null;
@@ -225,23 +198,6 @@
       if (err) t.style.background = '#8b1c1c';
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 3500);
-    }
-
-    function createRow(key, title) {
-      if (downloadsMap[key]) return;
-      const row = document.createElement('div');
-      row.className = 'dl-row';
-      row.id = `dl-${key}`;
-      row.innerHTML =
-        `<div class="dl-title">${title || 'download'}</div>` +
-        `<div id="dl-${key}-status" class="dl-status">Queued</div>`;
-      document.getElementById('downloadList').appendChild(row);
-      downloadsMap[key] = row;
-    }
-
-    function setStatus(key, html) {
-      const el = document.getElementById(`dl-${key}-status`);
-      if (el) el.innerHTML = html;
     }
 
     function resetIdleTimer() {
@@ -260,7 +216,6 @@
       if (socket) return;
       socket = io({ timeout: 5000, reconnectionAttempts: 3 });
 
-      // Reset idle timer khi có activity
       ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
         window.addEventListener(evt, resetIdleTimer, true);
       });
@@ -269,38 +224,17 @@
       socket.on('connect_error', () => showToast('Socket connection failed', true));
       socket.on('disconnect', () => showToast('Socket disconnected', true));
 
-      socket.on('download_started', data => {
-        if (!data || !data.key) return;
-        myDownloadKeys.add(data.key);
-        createRow(data.key, data.title);
-        setStatus(data.key, data.message || 'Queued');
-      });
-
-      socket.on('download_status', data => {
-        if (!data || !myDownloadKeys.has(data.key)) return;
-        setStatus(data.key, data.message || data.status || '...');
-      });
-
       socket.on('download_complete', data => {
-        if (!data || !myDownloadKeys.has(data.key)) return;
-        if (!downloadsMap[data.key]) {
-          createRow(data.key, data.title);
-        }
+        if (!data || !data.download_url) return;
 
-        if (data.status === 'done' && data.download_url) {
-          const url = data.download_url;
-          const fname = decodeURIComponent(url.split('/').pop());
-          setStatus(
-            data.key,
-            `<a class="dl-link" href="${url}" download="${fname}">⬇ Download</a>`
-          );
-          showToast(data.message || 'Ready');
-        } else {
-          setStatus(data.key, `Error: ${data.message || 'failed'}`);
-          showToast(data.message || 'Download failed', true);
-        }
-
-        myDownloadKeys.delete(data.key);
+        const url = data.download_url;
+        const fname = decodeURIComponent(url.split('/').pop());
+        const downloadLink = document.getElementById('downloadLink');
+        downloadLink.href = url;
+        downloadLink.download = fname;
+        downloadLink.style.display = 'inline-block';
+        downloadLink.textContent = '⬇ Download Ready';
+        showToast('Download Ready');
       });
     }
 
@@ -345,7 +279,7 @@
               <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
               <div class="fmt-meta">
                 <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                <div class="muted">${f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec!=="none"?f.acodec:'no audio'}</div>
+                <div class="muted">${f.vcodec !== "none" ? f.vcodec : 'audio'} / ${f.acodec !== "none" ? f.acodec : 'no audio'}</div>
               </div>
             `;
             row.onclick = () => selectedFormat = f.format_id;
@@ -381,8 +315,6 @@
             throw new Error(err.error || 'Queue failed');
           }
 
-          const data = await res.json();
-          if (data.key) myDownloadKeys.add(data.key);
           showToast('Download queued');
         } catch (err) {
           console.error(err);
