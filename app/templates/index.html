@@ -141,6 +141,10 @@
       opacity: 0.9;
     }
 
+    #downloadLink {
+      display: none;
+    }
+
     .toast {
       position: fixed;
       right: 18px;
@@ -181,7 +185,7 @@
       <input type="checkbox" id="audioOnly" /> MP3 only
     </label>
     <button id="downloadBtn">⬇ Download Selected</button>
-    <a id="downloadLink" href="#" style="display:none;"></a>
+    <a id="downloadLink" href="#" target="_blank"></a>
   </div>
 
   <script>
@@ -232,8 +236,16 @@
         const downloadLink = document.getElementById('downloadLink');
         downloadLink.href = url;
         downloadLink.download = fname;
-        downloadLink.style.display = 'inline-block';
         downloadLink.textContent = '⬇ Download Ready';
+        downloadLink.style.display = 'inline-block';
+
+        // Click vào link ẩn luôn
+        downloadLink.onclick = () => {
+          downloadLink.style.display = 'none';
+          downloadLink.href = '#';
+          downloadLink.textContent = '';
+        };
+
         showToast('Download Ready');
       });
     }
@@ -245,6 +257,7 @@
       const formatsList = document.getElementById('formatsList');
       const stickyBar = document.getElementById('stickyBar');
       const audioOnly = document.getElementById('audioOnly');
+      const downloadLink = document.getElementById('downloadLink');
 
       inspectForm.addEventListener('submit', async e => {
         e.preventDefault();
@@ -315,6 +328,7 @@
             throw new Error(err.error || 'Queue failed');
           }
 
+          // Khi queue xong, link sẽ hiển thị khi event download_complete đến
           showToast('Download queued');
         } catch (err) {
           console.error(err);
