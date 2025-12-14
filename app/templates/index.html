@@ -1,352 +1,302 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Downloader</title>
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <style>
-    :root {
-      --muted: #9aa4b2;
-      --accent: #ef4444;
-      --success: #10b981;
-      --bg: #071022;
-      --panel: #071427;
-      --dl-bg: rgba(11, 18, 32, 0.95);
-      --toast-bg: rgba(7, 18, 39, 0.95);
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Downloader</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<style>
+:root {
+  --muted: #9aa4b2;
+  --accent: #ef4444;
+  --bg: #071022;
+  --panel: #071427;
+  --dl-bg: rgba(11, 18, 32, 0.95);
+  --toast-bg: rgba(7, 18, 39, 0.95);
+}
 
-    html,
-    body {
-      height: 100%;
-      margin: 0;
-      font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
-      background: var(--bg);
-      color: #e6eef6;
-    }
+html, body {
+  margin:0;
+  padding:0;
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+  background: var(--bg);
+  color: #e6eef6;
+}
 
-    .wrap {
-      max-width: 1100px;
-      margin: 28px auto;
-      padding: 20px;
-    }
+.wrap {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 10px;
+}
 
-    .panel {
-      background: var(--panel);
-      padding: 18px;
-      border-radius: 12px;
-    }
+.panel {
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
 
-    .input-row {
-      display: flex;
-      gap: 10px;
-    }
+/* Input + button trên 2 dòng */
+.input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-    .input-row input[type=text] {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      background: transparent;
-      color: inherit;
-    }
+.input-row input[type=text] {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: inherit;
+}
 
-    .input-row button {
-      padding: 10px 12px;
-      border-radius: 8px;
-      background: var(--accent);
-      border: none;
-      color: #fff;
-      cursor: pointer;
-      transition: 0.2s;
-    }
+.input-row button {
+  padding: 10px;
+  border-radius: 8px;
+  border:none;
+  background: var(--accent);
+  color: #fff;
+  cursor:pointer;
+}
 
-    .input-row button:hover {
-      opacity: 0.9;
-    }
+#formatsPanel {
+  display: none;
+  max-height: 300px;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 6px;
+}
 
-    #formatsPanel {
-      display: none;
-      margin-top: 12px;
-    }
+.fmt-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px;
+  border-radius:6px;
+  background: rgba(255,255,255,0.02);
+  cursor:pointer;
+}
 
-    .fmt-row {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding: 8px;
-      border-radius: 8px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
-      border: 1px solid rgba(255, 255, 255, 0.02);
-      cursor: pointer;
-      transition: 0.15s;
-    }
+.fmt-row:hover { background: rgba(255,255,255,0.05); }
 
-    .fmt-row:hover {
-      background: rgba(255, 255, 255, 0.05);
-    }
+.fmt-meta { flex:1; }
 
-    .fmt-meta {
-      flex: 1;
-    }
+#downloadPanel div {
+  margin-bottom: 6px;
+}
 
-    .sticky-actions {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--dl-bg);
-      padding: 12px 20px;
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      align-items: center;
-      z-index: 1100;
-      flex-wrap: wrap;
-    }
+#downloadPanel a {
+  font-weight: 700;
+  color:#7dd3fc;
+  text-decoration:none;
+}
 
-    .sticky-actions label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      margin-right: auto;
-      cursor: pointer;
-    }
+#stickyBar {
+  position: fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  background: var(--dl-bg);
+  padding:10px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content: center;
+  flex-wrap: wrap;
+  z-index:1000;
+}
 
-    .sticky-actions button {
-      background: var(--accent);
-      color: #fff;
-      border-radius: 8px;
-      padding: 10px 14px;
-      border: none;
-      cursor: pointer;
-      transition: 0.2s;
-    }
+#stickyBar label { cursor:pointer; display:flex; align-items:center; gap:6px; color: var(--muted); }
 
-    .sticky-actions button:hover {
-      opacity: 0.9;
-    }
+.toast {
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  background: var(--toast-bg);
+  color:#e6eef6;
+  padding:10px 14px;
+  border-radius:8px;
+  z-index:2000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  opacity:0.95;
+  transition:0.3s;
+}
 
-    #downloadPanel {
-      position: fixed;
-      bottom: 80px;
-      left: 20px;
-      background: var(--dl-bg);
-      color: #fff;
-      padding: 10px 14px;
-      border-radius: 8px;
-      z-index: 1500;
-      display: none;
-    }
-
-    #downloadPanel a {
-      color: #7dd3fc;
-      font-weight: 700;
-      display: block;
-      margin-bottom: 6px;
-      text-decoration: none;
-    }
-
-    .toast {
-      position: fixed;
-      right: 18px;
-      top: 18px;
-      background: var(--toast-bg);
-      color: #e6eef6;
-      padding: 10px 14px;
-      border-radius: 8px;
-      z-index: 2000;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-      opacity: 0.95;
-      transition: 0.3s;
-    }
-  </style>
+@media (max-width: 480px) {
+  .input-row { flex-direction: column; }
+  .input-row button { width:100%; }
+}
+</style>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="panel">
-      <h1 style="margin:0 0 8px">YouTube Downloader</h1>
-      <form id="inspectForm">
-        <div class="input-row">
-          <input type="text" name="url" placeholder="Paste YouTube URL" required />
-          <button type="submit">Inspect</button>
-        </div>
-      </form>
-
-      <div id="formatsPanel" class="panel">
-        <h3 id="videoTitle"></h3>
-        <div id="formatsList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto"></div>
+<div class="wrap">
+  <!-- Input URL + Inspect -->
+  <div class="panel">
+    <h2>YouTube Downloader</h2>
+    <form id="inspectForm">
+      <div class="input-row">
+        <input type="text" name="url" placeholder="Paste YouTube URL" required>
+        <button type="submit">Inspect</button>
       </div>
-    </div>
+    </form>
   </div>
 
-  <div class="sticky-actions" id="stickyBar" style="display:none">
-    <label>
-      <input type="checkbox" id="audioOnly" /> MP3 only
-    </label>
-    <button id="downloadBtn">⬇ Download Selected</button>
+  <!-- List format -->
+  <div id="formatsPanel" class="panel">
+    <h3 id="videoTitle"></h3>
+    <div id="formatsList" style="display:flex;flex-direction:column;gap:6px"></div>
   </div>
 
-  <div id="downloadPanel"></div>
+  <!-- Download list dùng chung -->
+  <div id="downloadPanel" class="panel"></div>
+</div>
 
-  <script>
-    let socket = null;
-    let currentUrl = null;
-    let selectedFormat = null;
-    let myDownloadKeys = new Set();
-    let idleTimeout = null;
+<!-- Button download fixed -->
+<div id="stickyBar" style="display:none">
+  <label><input type="checkbox" id="audioOnly"> MP3 only</label>
+  <button id="downloadBtn">⬇ Download Selected</button>
+</div>
 
-    function showToast(msg, err = false) {
-      if (!msg) return;
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.textContent = msg;
-      if (err) t.style.background = '#8b1c1c';
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3500);
+<script>
+let socket = null;
+let currentUrl = null;
+let selectedFormat = null;
+let myDownloadKeys = new Set();
+let idleTimeout = null;
+
+function showToast(msg, err=false){
+  if(!msg) return;
+  const t = document.createElement('div');
+  t.className='toast';
+  t.textContent=msg;
+  if(err) t.style.background='#8b1c1c';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3500);
+}
+
+function resetIdleTimer(){
+  if(idleTimeout) clearTimeout(idleTimeout);
+  idleTimeout = setTimeout(()=>{
+    if(socket){ socket.disconnect(); socket=null; showToast('Disconnected due to inactivity',true); }
+  },300000);
+}
+
+function initSocket(){
+  if(socket) return;
+  socket = io({ timeout:5000, reconnectionAttempts:3 });
+  ['mousemove','keydown','touchstart','scroll'].forEach(evt=>{
+    window.addEventListener(evt, resetIdleTimer, true);
+  });
+  socket.on('connect', ()=>resetIdleTimer());
+  socket.on('connect_error', ()=>showToast('Socket connection failed',true));
+  socket.on('disconnect', ()=>showToast('Socket disconnected',true));
+
+  socket.on('download_complete', data=>{
+    if(!data || !data.download_url || !data.format_id) return;
+
+    const panel = document.getElementById('downloadPanel');
+    const url = data.download_url;
+    const fname = decodeURIComponent(url.split('/').pop());
+    const formatId = data.format_id;
+    const filesize = data.filesize || ''; // nếu server gửi kích thước
+
+    const infoText = `${fname} (${formatId}${filesize ? ', ' + filesize : ''})`;
+
+    // Kiểm tra nếu đã có format_id -> update
+    let existing = panel.querySelector(`[data-format-id="${formatId}"]`);
+    if(!existing){
+      const item = document.createElement('div');
+      item.dataset.formatId = formatId;
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      a.textContent = `⬇ ${infoText}`;
+
+      item.appendChild(a);
+      panel.appendChild(item);
+    } else {
+      const a = existing.querySelector('a');
+      a.href = url;
+      a.download = fname;
+      a.textContent = `⬇ ${infoText}`;
     }
 
-    function resetIdleTimer() {
-      if (idleTimeout) clearTimeout(idleTimeout);
-      idleTimeout = setTimeout(() => {
-        if (socket) {
-          console.log('No activity for 5 minutes, disconnecting socket.');
-          socket.disconnect();
-          socket = null;
-          showToast('Disconnected due to inactivity', true);
-        }
-      }, 300000); // 5 phút
+    panel.style.display = 'block';
+  });
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const inspectForm = document.getElementById('inspectForm');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const formatsPanel = document.getElementById('formatsPanel');
+  const formatsList = document.getElementById('formatsList');
+  const stickyBar = document.getElementById('stickyBar');
+  const audioOnly = document.getElementById('audioOnly');
+  const downloadPanel = document.getElementById('downloadPanel');
+
+  // Inspect URL -> hiển thị format
+  inspectForm.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const url = inspectForm.url.value.trim();
+    if(!url) return showToast('URL required',true);
+    try{
+      const res = await fetch('/inspect',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({url})
+      });
+      if(!res.ok){ const err=await res.json(); throw new Error(err.error||'Inspect failed'); }
+      const data = await res.json();
+      if(!data.formats||!data.formats.length) throw new Error('No formats found');
+
+      currentUrl=url;
+      selectedFormat=null;
+      formatsList.innerHTML=''; 
+      document.getElementById('videoTitle').textContent=data.title;
+
+      data.formats.forEach(f=>{
+        const row = document.createElement('label');
+        row.className='fmt-row';
+        row.innerHTML=`
+          <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
+          <div class="fmt-meta">
+            <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note||''}</span></div>
+            <div class="muted">${f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec!=="none"?f.acodec:'no audio'}</div>
+          </div>
+        `;
+        row.querySelector('input').addEventListener('change',()=>selectedFormat=f.format_id);
+        formatsList.appendChild(row);
+      });
+
+      formatsPanel.style.display='block';
+      stickyBar.style.display='flex';
+    }catch(err){
+      console.error(err);
+      showToast(err.message,true);
     }
+  });
 
-    function initSocket() {
-      if (socket) return;
-      socket = io({ timeout: 5000, reconnectionAttempts: 3 });
-
-      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
-        window.addEventListener(evt, resetIdleTimer, true);
+  // Click nút Download Selected
+  downloadBtn.addEventListener('click', async ()=>{
+    if(!currentUrl||!selectedFormat) return showToast('Select format',true);
+    initSocket();
+    downloadBtn.disabled=true;
+    try{
+      const res = await fetch('/download',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({url:currentUrl, format_id:selectedFormat, audio_only: audioOnly.checked?1:0})
       });
-
-      socket.on('connect', () => resetIdleTimer());
-      socket.on('connect_error', () => showToast('Socket connection failed', true));
-      socket.on('disconnect', () => showToast('Socket disconnected', true));
-
-      socket.on('download_complete', data => {
-        if (!data || !data.download_url) return;
-
-        const panel = document.getElementById('downloadPanel');
-        const url = data.download_url;
-        const fname = decodeURIComponent(url.split('/').pop());
-
-        panel.innerHTML = '';
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fname;
-        a.textContent = `⬇ ${fname}`;
-        a.onclick = () => panel.style.display = 'none';
-
-        panel.appendChild(a);
-        panel.style.display = 'block';
-
-        showToast('Download Ready');
-      });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const inspectForm = document.getElementById('inspectForm');
-      const downloadBtn = document.getElementById('downloadBtn');
-      const formatsPanel = document.getElementById('formatsPanel');
-      const formatsList = document.getElementById('formatsList');
-      const stickyBar = document.getElementById('stickyBar');
-      const audioOnly = document.getElementById('audioOnly');
-
-      inspectForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const url = inspectForm.url.value.trim();
-        if (!url) return showToast('URL required', true);
-
-        try {
-          const res = await fetch('/inspect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-          });
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Inspect failed');
-          }
-
-          const data = await res.json();
-          if (!data.formats || !data.formats.length) throw new Error('No formats found');
-
-          currentUrl = url;
-          selectedFormat = null;
-          formatsList.innerHTML = '';
-          document.getElementById('videoTitle').textContent = data.title;
-
-          data.formats.forEach(f => {
-            const row = document.createElement('label');
-            row.className = 'fmt-row';
-            row.innerHTML = `
-              <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
-              <div class="fmt-meta">
-                <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                <div class="muted">${f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec!=="none"?f.acodec:'no audio'}</div>
-              </div>
-            `;
-            row.onclick = () => selectedFormat = f.format_id;
-            formatsList.appendChild(row);
-          });
-
-          formatsPanel.style.display = 'block';
-          stickyBar.style.display = 'flex';
-        } catch (err) {
-          console.error(err);
-          showToast(err.message, true);
-        }
-      });
-
-      downloadBtn.addEventListener('click', async () => {
-        if (!currentUrl || !selectedFormat) return showToast('Select format', true);
-
-        // Ẩn panel format và sticky bar khi download
-        formatsPanel.style.display = 'none';
-        stickyBar.style.display = 'none';
-
-        initSocket();
-        downloadBtn.disabled = true;
-
-        try {
-          const res = await fetch('/download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: currentUrl,
-              format_id: selectedFormat,
-              audio_only: audioOnly.checked ? 1 : 0
-            })
-          });
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Queue failed');
-          }
-
-          const data = await res.json();
-          if (data.key) myDownloadKeys.add(data.key);
-          showToast('Download queued');
-        } catch (err) {
-          console.error(err);
-          showToast(err.message, true);
-        } finally {
-          downloadBtn.disabled = false;
-        }
-      });
-    });
-  </script>
+      if(!res.ok){ const err=await res.json(); throw new Error(err.error||'Queue failed'); }
+      const data = await res.json();
+      if(data.key) myDownloadKeys.add(data.key);
+      showToast('Download queued');
+    }catch(err){ console.error(err); showToast(err.message,true); }
+    finally{ downloadBtn.disabled=false; }
+  });
+});
+</script>
 </body>
-
 </html>
