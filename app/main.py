@@ -168,7 +168,7 @@ def download():
             })
 
     #Thread(target=bg_download, daemon=True).start()
-    socketio.start_background_task(bg_download))
+    socketio.start_background_task(bg_download)
 
     return jsonify({
         "key": key,
