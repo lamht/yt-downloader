@@ -5,23 +5,17 @@ import subprocess
 from urllib.parse import quote
 import tempfile
 import sys
+# main.py
+from flask import Flask
+from flask_socketio import SocketIO
+from log_config import setup_logger
+
+logger = setup_logger("downloader")
+
+logger.info("Logger for downloader initialized")
 
 import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
-
-# ---------- Logger riêng cho file này ----------
-class FlushStreamHandler(logging.StreamHandler):
-    def emit(self, record):
-        super().emit(record)
-        self.flush()  # đảm bảo mỗi log được flush ngay
-
-logger = logging.getLogger("downloader")
-logger.setLevel(logging.INFO)
-if not logger.hasHandlers():
-    ch = FlushStreamHandler(sys.stdout)
-    formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
 
 # ---------- Cookie file from environment ----------
 _cookie_file_path = None
