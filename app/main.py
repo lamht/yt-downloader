@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 from flask import (
     Flask, request, jsonify,
-    send_from_directory, Response
+    send_from_directory, Response, make_response
 )
 from flask_socketio import SocketIO
 from flask import Flask
@@ -84,7 +84,11 @@ def process_file(src_path: str, dst_dir: str) -> str:
 # / → index.html
 @app.route("/")
 def index():
-    return send_from_directory("templates", "index.html")
+    response = make_response(send_from_directory("templates", "index.html"))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 # /inspect → JSON
 @app.route("/inspect", methods=["POST"])
