@@ -66,13 +66,9 @@
       opacity: 0.9;
     }
 
-    #formatsList {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 360px;
-      overflow: auto;
-      margin-bottom: 12px;
+    #formatsPanel {
+      display: none;
+      margin-top: 12px;
     }
 
     .fmt-row {
@@ -119,8 +115,7 @@
       cursor: pointer;
     }
 
-    .sticky-actions button,
-    .sticky-actions a#downloadLink {
+    .sticky-actions button {
       background: var(--accent);
       color: #fff;
       border-radius: 8px;
@@ -128,21 +123,30 @@
       border: none;
       cursor: pointer;
       transition: 0.2s;
-      text-decoration: none;
-      display: inline-block;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
     }
 
-    .sticky-actions button:hover,
-    .sticky-actions a#downloadLink:hover {
+    .sticky-actions button:hover {
       opacity: 0.9;
     }
 
-    #downloadLink {
+    #downloadPanel {
+      position: fixed;
+      bottom: 80px;
+      left: 20px;
+      background: var(--dl-bg);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      z-index: 1500;
       display: none;
+    }
+
+    #downloadPanel a {
+      color: #7dd3fc;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 6px;
+      text-decoration: none;
     }
 
     .toast {
@@ -163,19 +167,18 @@
 
 <body>
   <div class="wrap">
-    <div class="panel" style="margin-bottom:16px">
+    <div class="panel">
       <h1 style="margin:0 0 8px">YouTube Downloader</h1>
-      <form id="inspectForm" method="POST" style="margin-bottom:8px">
-        <input type="hidden" name="action" value="inspect" />
+      <form id="inspectForm">
         <div class="input-row">
           <input type="text" name="url" placeholder="Paste YouTube URL" required />
           <button type="submit">Inspect</button>
         </div>
       </form>
 
-      <div id="formatsPanel" class="panel" style="display:none">
+      <div id="formatsPanel" class="panel">
         <h3 id="videoTitle"></h3>
-        <div id="formatsList"></div>
+        <div id="formatsList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto"></div>
       </div>
     </div>
   </div>
@@ -185,13 +188,15 @@
       <input type="checkbox" id="audioOnly" /> MP3 only
     </label>
     <button id="downloadBtn">⬇ Download Selected</button>
-    <a id="downloadLink" href="#" target="_blank"></a>
   </div>
+
+  <div id="downloadPanel"></div>
 
   <script>
     let socket = null;
     let currentUrl = null;
     let selectedFormat = null;
+    let myDownloadKeys = new Set();
     let idleTimeout = null;
 
     function showToast(msg, err = false) {
@@ -231,20 +236,19 @@
       socket.on('download_complete', data => {
         if (!data || !data.download_url) return;
 
+        const panel = document.getElementById('downloadPanel');
         const url = data.download_url;
         const fname = decodeURIComponent(url.split('/').pop());
-        const downloadLink = document.getElementById('downloadLink');
-        downloadLink.href = url;
-        downloadLink.download = fname;
-        downloadLink.textContent = '⬇ Download Ready';
-        downloadLink.style.display = 'inline-block';
 
-        // Click vào link ẩn luôn
-        downloadLink.onclick = () => {
-          downloadLink.style.display = 'none';
-          downloadLink.href = '#';
-          downloadLink.textContent = '';
-        };
+        panel.innerHTML = '';
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fname;
+        a.textContent = `⬇ ${fname}`;
+        a.onclick = () => panel.style.display = 'none';
+
+        panel.appendChild(a);
+        panel.style.display = 'block';
 
         showToast('Download Ready');
       });
@@ -257,7 +261,6 @@
       const formatsList = document.getElementById('formatsList');
       const stickyBar = document.getElementById('stickyBar');
       const audioOnly = document.getElementById('audioOnly');
-      const downloadLink = document.getElementById('downloadLink');
 
       inspectForm.addEventListener('submit', async e => {
         e.preventDefault();
@@ -277,8 +280,7 @@
           }
 
           const data = await res.json();
-          if (!data.formats || data.formats.length === 0)
-            throw new Error('No formats found');
+          if (!data.formats || !data.formats.length) throw new Error('No formats found');
 
           currentUrl = url;
           selectedFormat = null;
@@ -292,7 +294,7 @@
               <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
               <div class="fmt-meta">
                 <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                <div class="muted">${f.vcodec !== "none" ? f.vcodec : 'audio'} / ${f.acodec !== "none" ? f.acodec : 'no audio'}</div>
+                <div class="muted">${f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec!=="none"?f.acodec:'no audio'}</div>
               </div>
             `;
             row.onclick = () => selectedFormat = f.format_id;
@@ -307,11 +309,16 @@
         }
       });
 
-      downloadBtn.addEventListener('click', async e => {
+      downloadBtn.addEventListener('click', async () => {
         if (!currentUrl || !selectedFormat) return showToast('Select format', true);
-        initSocket();
 
+        // Ẩn panel format và sticky bar khi download
+        formatsPanel.style.display = 'none';
+        stickyBar.style.display = 'none';
+
+        initSocket();
         downloadBtn.disabled = true;
+
         try {
           const res = await fetch('/download', {
             method: 'POST',
@@ -328,7 +335,8 @@
             throw new Error(err.error || 'Queue failed');
           }
 
-          // Khi queue xong, link sẽ hiển thị khi event download_complete đến
+          const data = await res.json();
+          if (data.key) myDownloadKeys.add(data.key);
           showToast('Download queued');
         } catch (err) {
           console.error(err);
@@ -340,4 +348,5 @@
     });
   </script>
 </body>
+
 </html>
