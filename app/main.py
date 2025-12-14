@@ -18,8 +18,6 @@ from flask import Flask
 from flask_socketio import SocketIO
 from log_config import setup_logger
 
-logger = setup_logger("main")
-
 logger.info("Logger for main initialized")
 from downloader import download_video, get_video_info
 
