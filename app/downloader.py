@@ -40,9 +40,15 @@ WINDOWS_UA = (
     "Chrome/120.0.0.0 Safari/537.36"
 )
 
+def my_hook(d):
+    # d có keys: status, downloaded_bytes, total_bytes, eta, filename, tmpfilename...
+    logger.info("Progress: %s", d)
+
 def _base_ydl_opts(extra: dict | None = None):
     opts = {
-        "quiet": False,
+        "quiet": True,
+        "progress_hooks": [my_hook],
+        "logger": logger,
         "no_warnings": False,
         #"user_agent": WINDOWS_UA,
         "retries": 3,
