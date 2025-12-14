@@ -283,6 +283,9 @@
 
       socket.on('download_complete', data => {
         if (!data || !myDownloadKeys.has(data.key)) return;
+        if (!downloadsMap[data.key]) {
+          createRow(data.key, data.title);
+        }
 
         if (data.status === 'done' && data.download_url) {
           const url = data.download_url;
