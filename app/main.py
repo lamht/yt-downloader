@@ -14,8 +14,18 @@ from flask import (
     send_from_directory, Response
 )
 from flask_socketio import SocketIO
+from flask import Flask
+from flask_socketio import SocketIO
+from log_config import setup_logger
 
+logger = setup_logger("main")
+
+logger.info("Logger for main initialized")
+
+app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 from downloader import download_video, get_video_info
+
 
 # ---------- Setup ----------
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +39,7 @@ socketio = SocketIO(
     async_mode="eventlet"
 )
 
-logger = logging.getLogger("main")
+logger = setup_logger("main")
 
 # ---------- Download tracking ----------
 _downloads = {}
