@@ -149,7 +149,10 @@ html, body {
   </div>
 
   <!-- Download list dùng chung -->
-  <div id="downloadPanel" class="panel"></div>
+  <div id="downloadPanel" class="panel" style="display:none">
+    <h3>Download List</h3>
+    <div id="downloadList"></div>
+  </div>
 </div>
 
 <!-- Button download fixed -->
@@ -185,26 +188,30 @@ function resetIdleTimer(){
 function initSocket(){
   if(socket) return;
   socket = io({ timeout:5000, reconnectionAttempts:3 });
+
   ['mousemove','keydown','touchstart','scroll'].forEach(evt=>{
     window.addEventListener(evt, resetIdleTimer, true);
   });
+
   socket.on('connect', ()=>resetIdleTimer());
   socket.on('connect_error', ()=>showToast('Socket connection failed',true));
   socket.on('disconnect', ()=>showToast('Socket disconnected',true));
 
+  // Download complete
   socket.on('download_complete', data=>{
-    if(!data || !data.download_url || !data.format_id) return;
+    if(!data || !data.download_url) return;
 
+    const downloadList = document.getElementById('downloadList');
     const panel = document.getElementById('downloadPanel');
     const url = data.download_url;
     const fname = decodeURIComponent(url.split('/').pop());
-    const formatId = data.format_id;
-    const filesize = data.filesize || ''; // nếu server gửi kích thước
+    const formatId = data.format_id || 'unknown';
+    const filesize = data.filesize || '';
 
     const infoText = `${fname} (${formatId}${filesize ? ', ' + filesize : ''})`;
 
-    // Kiểm tra nếu đã có format_id -> update
-    let existing = panel.querySelector(`[data-format-id="${formatId}"]`);
+    let existing = downloadList.querySelector(`[data-format-id="${formatId}"]`);
+
     if(!existing){
       const item = document.createElement('div');
       item.dataset.formatId = formatId;
@@ -215,7 +222,7 @@ function initSocket(){
       a.textContent = `⬇ ${infoText}`;
 
       item.appendChild(a);
-      panel.appendChild(item);
+      downloadList.appendChild(item);
     } else {
       const a = existing.querySelector('a');
       a.href = url;
@@ -223,7 +230,7 @@ function initSocket(){
       a.textContent = `⬇ ${infoText}`;
     }
 
-    panel.style.display = 'block';
+    panel.style.display='block';
   });
 }
 
@@ -234,9 +241,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const formatsList = document.getElementById('formatsList');
   const stickyBar = document.getElementById('stickyBar');
   const audioOnly = document.getElementById('audioOnly');
-  const downloadPanel = document.getElementById('downloadPanel');
 
-  // Inspect URL -> hiển thị format
+  // Inspect URL
   inspectForm.addEventListener('submit', async e=>{
     e.preventDefault();
     const url = inspectForm.url.value.trim();
@@ -281,15 +287,26 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Click nút Download Selected
   downloadBtn.addEventListener('click', async ()=>{
     if(!currentUrl||!selectedFormat) return showToast('Select format',true);
-    initSocket();
+
+    initSocket(); // chỉ init khi download
+
     downloadBtn.disabled=true;
     try{
       const res = await fetch('/download',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({url:currentUrl, format_id:selectedFormat, audio_only: audioOnly.checked?1:0})
+        body:JSON.stringify({
+          url: currentUrl,
+          format_id: selectedFormat,
+          audio_only: audioOnly.checked ? 1 : 0
+        })
       });
-      if(!res.ok){ const err=await res.json(); throw new Error(err.error||'Queue failed'); }
+
+      if(!res.ok){
+        const err = await res.json();
+        throw new Error(err.error || 'Queue failed');
+      }
+
       const data = await res.json();
       if(data.key) myDownloadKeys.add(data.key);
       showToast('Download queued');
