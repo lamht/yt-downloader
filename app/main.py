@@ -1,336 +1,218 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>YouTube Downloader</title>
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-<style>
-:root {
-  --muted: #9aa4b2;
-  --accent: #ef4444;
-  --bg: #071022;
-  --panel: #071427;
-  --dl-bg: rgba(11, 18, 32, 0.95);
-  --toast-bg: rgba(7, 18, 39, 0.95);
-}
+import eventlet
+eventlet.monkey_patch()
 
-html, body {
-  margin:0;
-  padding:0;
-  font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
-  background: var(--bg);
-  color: #e6eef6;
-}
+import os
+import uuid
+import logging
+import traceback
+import subprocess
+from threading import Thread, Lock
+from urllib.parse import quote
 
-.wrap {
-  max-width: 600px;
-  margin: 20px auto;
-  padding: 10px;
-}
+from flask import (
+    Flask, request, jsonify,
+    send_from_directory, Response, make_response
+)
+from flask_socketio import SocketIO
+from flask import Flask
+from flask_socketio import SocketIO
+from log_config import setup_logger
 
-.panel {
-  background: var(--panel);
-  border-radius: 10px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
+from downloader import download_video, get_video_info
 
-/* Input + button trên 2 dòng */
-.input-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
-.input-row input[type=text] {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: transparent;
-  color: inherit;
-}
+# ---------- Setup ----------
+app = Flask(__name__, static_folder="static", static_url_path="")
+app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 
-.input-row button {
-  padding: 10px;
-  border-radius: 8px;
-  border:none;
-  background: var(--accent);
-  color: #fff;
-  cursor:pointer;
-}
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet"
+)
 
-#formatsPanel {
-  display: none;
-  max-height: 300px;
-  overflow-y: auto;
-  flex-direction: column;
-  gap: 6px;
-}
+logger = setup_logger("main")
+logger.info("Logger for main initialized")
 
-.fmt-row {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:8px;
-  border-radius:6px;
-  background: rgba(255,255,255,0.02);
-  cursor:pointer;
-}
+# ---------- Download tracking ----------
+_downloads = {}
+_lock = Lock()
 
-.fmt-row:hover { background: rgba(255,255,255,0.05); }
+def _new_key():
+    return uuid.uuid4().hex
 
-.fmt-meta { flex:1; }
+def _set(k, data):
+    with _lock:
+        _downloads[k] = {**_downloads.get(k, {}), **data}
 
-#downloadPanel div {
-  margin-bottom: 6px;
-}
+# ---------- File processor ----------
+def process_file(src_path: str, dst_dir: str) -> str:
+    DST_DIR = "/app/download"
+    full_dir = os.path.join(DST_DIR, dst_dir)
+    os.makedirs(full_dir, exist_ok=True)
 
-#downloadPanel a {
-  font-weight: 700;
-  color:#7dd3fc;
-  text-decoration:none;
-}
+    filename = os.path.basename(src_path)
+    name, ext = os.path.splitext(filename)
 
-#stickyBar {
-  position: fixed;
-  bottom:0;
-  left:0;
-  right:0;
-  background: var(--dl-bg);
-  padding:10px;
-  display:flex;
-  gap:8px;
-  align-items:center;
-  justify-content: center;
-  flex-wrap: wrap;
-  z-index:1000;
-}
+    name = quote(name[:100])
+    ext = ext.lower()
 
-#stickyBar label { cursor:pointer; display:flex; align-items:center; gap:6px; color: var(--muted); }
+    if ext == ".mp4":
+        dst = os.path.join(full_dir, f"{name}.aac")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst]
 
-.toast {
-  position: fixed;
-  right: 12px;
-  top: 12px;
-  background: var(--toast-bg);
-  color:#e6eef6;
-  padding:10px 14px;
-  border-radius:8px;
-  z-index:2000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-  opacity:0.95;
-  transition:0.3s;
-}
+    elif ext == ".m4a":
+        dst = os.path.join(full_dir, f"{name}.aac")
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
-@media (max-width: 480px) {
-  .input-row { flex-direction: column; }
-  .input-row button { width:100%; }
-}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <!-- Input URL + Inspect -->
-  <div class="panel">
-    <h2>YouTube Downloader</h2>
-    <form id="inspectForm">
-      <div class="input-row">
-        <input type="text" name="url" placeholder="Paste YouTube URL" required>
-        <button type="submit">Inspect</button>
-      </div>
-    </form>
-  </div>
+    elif ext in (".opus", ".webm"):
+        dst = os.path.join(full_dir, f"{name}.mp3")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst]
 
-  <!-- List format -->
-  <div id="formatsPanel" class="panel">
-    <h3 id="videoTitle"></h3>
-    <div id="formatsList" style="display:flex;flex-direction:column;gap:6px"></div>
-  </div>
+    else:
+        dst = os.path.join(full_dir, f"{name}{ext}")
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
-  <!-- Download list dùng chung -->
-  <div id="downloadPanel" class="panel" style="display:none">
-    <h3>Download List</h3>
-    <div id="downloadList"></div>
-  </div>
-</div>
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr)
 
-<!-- Button download fixed -->
-<div id="stickyBar" style="display:none">
-  <label><input type="checkbox" id="audioOnly"> MP3 only</label>
-  <button id="downloadBtn">⬇ Download Selected</button>
-</div>
+    return dst
 
-<script>
-let socket = null;
-let currentUrl = null;
-let selectedFormat = null;
-let myDownloadKeys = new Set();
-let idleTimeout = null;
+# ---------- Routes ----------
 
-function showToast(msg, err=false){
-  if(!msg) return;
-  const t = document.createElement('div');
-  t.className='toast';
-  t.textContent=msg;
-  if(err) t.style.background='#8b1c1c';
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(),3500);
-}
+# / → index.html
+@app.route("/")
+def index():
+    response = make_response(send_from_directory("templates", "index.html"))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
-function resetIdleTimer(){
-  if(idleTimeout) clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(()=>{
-    if(socket){ socket.disconnect(); socket=null; showToast('Disconnected due to inactivity',true); }
-  },300000);
-}
+# /inspect → JSON
+@app.route("/inspect", methods=["POST"])
+def inspect():
+    data = request.json or request.form
+    url = data.get("url")
 
-function initSocket(){
-  if(socket) return;
-  socket = io({ timeout:5000, reconnectionAttempts:5 });
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
 
-  ['mousemove','keydown','touchstart','scroll'].forEach(evt=>{
-    window.addEventListener(evt, resetIdleTimer, true);
-  });
+    info = get_video_info(url)
 
-  // Socket.IO events
-  socket.on('connect', ()=>showToast('Socket connected'));
-  socket.on('connect_error', ()=>showToast('Socket connection failed',true));
-  socket.on('disconnect', ()=>showToast('Socket disconnected',true));
-  socket.on('reconnect', (attempt)=>showToast(`Socket reconnected (attempt ${attempt})`));
-  socket.on('reconnect_attempt', (attempt)=>showToast(`Reconnecting... attempt ${attempt}`));
-  socket.on('reconnect_failed', ()=>showToast('Socket reconnect failed',true));
-  socket.on('reconnect_error', (err)=>showToast(`Reconnect error: ${err}`,true));
+    return jsonify({
+        "title": info.get("title"),
+        "formats": info.get("formats", [])
+    })
 
-  // Server custom events
-  socket.onAny((event, data)=>{
-    if(!data || !data.key) return;
-    if(!myDownloadKeys.has(data.key)) return;
+# /download → JSON + socket
+@app.route("/download", methods=["POST"])
+def download():
+    data = request.json or request.form
 
-    let msg = `[${event}] `;
-    if(data.status) msg += data.status;
-    if(data.message) msg += `: ${data.message}`;
-    showToast(msg);
-  });
+    url = data.get("url")
+    format_id = data.get("format_id") or None
+    audio_only = str(data.get("audio_only", "0")) == "1"
 
-  // Download complete -> update download list
-  socket.on('download_complete', data=>{
-    if(!data || !data.key || !myDownloadKeys.has(data.key)) return;
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
 
-    const downloadList = document.getElementById('downloadList');
-    const panel = document.getElementById('downloadPanel');
+    key = _new_key()
+    _set(key, {"status": "queued"})
 
-    if(data.status === 'done' && data.download_url){
-      const url = data.download_url;
-      const fname = decodeURIComponent(url.split('/').pop());
+    socketio.emit("download_started", {
+        "key": key,
+        "status": "queued"
+    })
 
-      let item = downloadList.querySelector(`[data-key="${data.key}"]`);
-      if(!item){
-        item = document.createElement('div');
-        item.dataset.key = data.key;
+    def bg_download():
+        try:
+            _set(key, {"status": "downloading"})
+            socketio.emit("download_status", {
+                "key": key,
+                "status": "downloading",
+                "message": "Downloading..."
+            })
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fname;
-        a.textContent = `⬇ ${fname}`;
+            result = download_video(
+                url,
+                format_id=format_id,
+                audio_only=audio_only
+            )
 
-        item.appendChild(a);
-        downloadList.appendChild(item);
-      } else {
-        const a = item.querySelector('a');
-        a.href = url;
-        a.download = fname;
-        a.textContent = `⬇ ${fname}`;
-      }
+            socketio.emit("download_status", {
+                "key": key,
+                "status": "processing",
+                "message": "Processing..."
+            })
 
-      panel.style.display='block';
-      showToast(`Download ready: ${fname}`);
-    } else if(data.status === 'error'){
-      showToast(`Download error: ${data.message || 'Unknown'}`, true);
+            final_path = process_file(result["filepath"], "aac")
+            file_name = quote(os.path.basename(final_path))
+
+            _set(key, {
+                "status": "done",
+                "filepath": final_path
+            })
+
+            socketio.emit("download_complete", {
+                "key": key,
+                "status": "done",
+                "download_url": f"/download/aac/{file_name}"
+            })
+
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            _set(key, {"status": "error", "error": str(e)})
+
+            socketio.emit("download_complete", {
+                "key": key,
+                "status": "error",
+                "message": str(e)
+            })
+
+    #Thread(target=bg_download, daemon=True).start()
+    socketio.start_background_task(bg_download)
+
+    return jsonify({
+        "key": key,
+        "status": "queued"
+    })
+
+# ---------- GIỮ NGUYÊN 100% ----------
+@app.route("/download/aac/<path:filename>")
+def download_aac(filename):
+    DST_DIR = "/app/download/aac"
+    path = os.path.join(DST_DIR, filename)
+
+    if not os.path.exists(path):
+        return "File not found", 404
+
+    ascii_filename = ''.join(
+        c if ord(c) < 128 else '_'
+        for c in filename
+    )
+
+    file_size = os.path.getsize(path)
+
+    headers = {
+        "Content-Disposition":
+            f"attachment; filename='{ascii_filename}'; "
+            f"filename*=UTF-8''{filename}",
+        "Content-Length": str(file_size),
+        "Content-Type": "application/octet-stream"
     }
-  });
-}
 
-document.addEventListener('DOMContentLoaded',()=>{
-  const inspectForm = document.getElementById('inspectForm');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const formatsPanel = document.getElementById('formatsPanel');
-  const formatsList = document.getElementById('formatsList');
-  const stickyBar = document.getElementById('stickyBar');
-  const audioOnly = document.getElementById('audioOnly');
+    def generate():
+        with open(path, "rb") as f:
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
+                yield chunk
 
-  // Inspect URL
-  inspectForm.addEventListener('submit', async e=>{
-    e.preventDefault();
-    const url = inspectForm.url.value.trim();
-    if(!url) return showToast('URL required',true);
-    try{
-      const res = await fetch('/inspect',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({url})
-      });
-      if(!res.ok){ const err=await res.json(); throw new Error(err.error||'Inspect failed'); }
-      const data = await res.json();
-      if(!data.formats||!data.formats.length) throw new Error('No formats found');
+    return Response(generate(), headers=headers)
 
-      currentUrl=url;
-      selectedFormat=null;
-      formatsList.innerHTML=''; 
-      document.getElementById('videoTitle').textContent=data.title;
-
-      data.formats.forEach(f=>{
-        const row = document.createElement('label');
-        row.className='fmt-row';
-        row.innerHTML=`
-          <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
-          <div class="fmt-meta">
-            <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note||''}</span></div>
-            <div class="muted">${f.vcodec!=="none"?f.vcodec:'audio'} / ${f.acodec!=="none"?f.acodec:'no audio'}</div>
-          </div>
-        `;
-        row.querySelector('input').addEventListener('change',()=>selectedFormat=f.format_id);
-        formatsList.appendChild(row);
-      });
-
-      formatsPanel.style.display='block';
-      stickyBar.style.display='flex';
-    }catch(err){
-      console.error(err);
-      showToast(err.message,true);
-    }
-  });
-
-  // Click nút Download Selected
-  downloadBtn.addEventListener('click', async ()=>{
-    if(!currentUrl||!selectedFormat) return showToast('Select format',true);
-
-    initSocket(); // chỉ init khi download
-
-    downloadBtn.disabled=true;
-    try{
-      const res = await fetch('/download',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          url: currentUrl,
-          format_id: selectedFormat,
-          audio_only: audioOnly.checked ? 1 : 0
-        })
-      });
-
-      if(!res.ok){
-        const err = await res.json();
-        throw new Error(err.error || 'Queue failed');
-      }
-
-      const data = await res.json();
-      if(data.key) myDownloadKeys.add(data.key);
-      showToast('Download queued');
-    }catch(err){ console.error(err); showToast(err.message,true); }
-    finally{ downloadBtn.disabled=false; }
-  });
-});
-</script>
-</body>
-</html>
+# ---------- Run ----------
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000)
