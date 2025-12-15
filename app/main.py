@@ -53,7 +53,7 @@ def process_file(src_path: str, dst_dir: str) -> str:
     filename = os.path.basename(src_path)
     name, ext = os.path.splitext(filename)
 
-    name = quote(name[:100])
+    name = name[:70]
     ext = ext.lower()
 
     if ext == ".mp4":
