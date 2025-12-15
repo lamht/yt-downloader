@@ -187,13 +187,14 @@ def download_aac(filename):
         c if ord(c) < 128 else '_'
         for c in filename
     )
+    safe_filename = quote(filename)
 
     file_size = os.path.getsize(path)
 
     headers = {
         "Content-Disposition":
             f"attachment; filename='{ascii_filename}'; "
-            f"filename*=UTF-8''{filename}",
+            f"filename*=UTF-8''{safe_filename}",
         "Content-Length": str(file_size),
         "Content-Type": "application/octet-stream"
     }
