@@ -272,6 +272,7 @@
     let currentUrl = null;
     let selectedFormat = null;
     let idleTimeout = null;
+    let title = null;
 
     function showToast(msg, err = false) {
       if (!msg) return;
@@ -367,7 +368,10 @@
           currentUrl = url;
           selectedFormat = null;
           formatsList.innerHTML = '';
-          if (data.title) document.getElementById('videoTitle').textContent = data.title;
+          if (data.title) {
+            title = data.title;
+            document.getElementById('videoTitle').textContent = data.title;
+          }
           if (data.formats && data.formats.length > 0) {
             data.formats.forEach(f => {
               const row = document.createElement('label');
@@ -415,7 +419,7 @@
           }
           const data = await res.json();
           if (data.key) {
-            createRow(data.key, data.title);
+            createRow(data.key, data.title || title);
             myDownloadKeys.add(data.key);
           }
           showToast('Download queued');
