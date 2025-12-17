@@ -1,12 +1,21 @@
-version: "3.8"
-
 services:
   ytdownloader:
     image: thanhlam00290/yt-downloader:latest
+    container_name: ytdownloader
     restart: unless-stopped
     ports:
       - "5000:5000"
     volumes:
       - ./downloads:/app/downloads
     environment:
-      - FLASK_ENV=production
+      FLASK_ENV: production
+
+  forwarder:
+    image: thanhlam00290/forwarder:latest
+    container_name: forwarder
+    restart: unless-stopped
+    depends_on:
+      - ytdownloader
+    environment:
+      URL_FORWARD: "http://ytdownloader:5000"
+      FIREBASE_DB_URL: "https://xxx.firebaseio.com"
