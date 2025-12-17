@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 import glob
 import logging
 import subprocess
@@ -17,7 +19,11 @@ import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
 
 # ---------- Cookie file from environment ----------
+_cookie_file_path = None
+
 def _get_cookie_file():
+    global _cookie_file_path
+
     path = os.environ.get("COOKIE_PATH")
     logger.info("COOKIE_PATH env = %s", path)
 
@@ -25,12 +31,34 @@ def _get_cookie_file():
         logger.info("COOKIE_PATH not set")
         return None
 
-    if os.path.isfile(path):
-        logger.info("Cookie file exists: %s", path)
-        return path
+    if not os.path.isfile(path):
+        logger.info("Cookie file NOT found at: %s", path)
+        return None
 
-    logger.info("Cookie file NOT found at: %s", path)
-    return None
+    # reuse temp file
+    if _cookie_file_path:
+        logger.info("Reusing temp cookie file: %s", _cookie_file_path)
+        return _cookie_file_path
+
+    try:
+        tmp = tempfile.NamedTemporaryFile(
+            delete=False, mode="w", encoding="utf-8", suffix=".txt"
+        )
+        tmp.close()
+
+        shutil.copyfile(path, tmp.name)
+        _cookie_file_path = tmp.name
+
+        logger.info(
+            "Cookie file copied from %s (read-only) → %s (writable)",
+            path,
+            _cookie_file_path,
+        )
+        return _cookie_file_path
+
+    except Exception as e:
+        logger.info("Failed to prepare temp cookie file: %s", e)
+        return None
 
 # ---------- yt-dlp utils ----------
 WINDOWS_UA = (
