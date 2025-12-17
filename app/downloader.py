@@ -19,8 +19,17 @@ from yt_dlp.utils import DownloadError, ExtractorError
 # ---------- Cookie file from environment ----------
 def _get_cookie_file():
     path = os.environ.get("COOKIE_PATH")
-    if path and os.path.isfile(path):
+    logger.info("COOKIE_PATH env = %s", path)
+
+    if not path:
+        logger.info("COOKIE_PATH not set")
+        return None
+
+    if os.path.isfile(path):
+        logger.info("Cookie file exists: %s", path)
         return path
+
+    logger.info("Cookie file NOT found at: %s", path)
     return None
 
 # ---------- yt-dlp utils ----------
