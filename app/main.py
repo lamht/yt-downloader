@@ -209,6 +209,15 @@ def download_aac(filename):
 
     return Response(generate(), headers=headers)
 
+# ---------- Health check ----------
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "ok",
+        "service": "yt-downloader",
+        "timestamp": int(time.time())
+    }), 200
+
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
