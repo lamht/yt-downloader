@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YouTube Downloader</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
   <style>
     :root {
       --muted: #9aa4b2;
@@ -18,6 +19,10 @@
       --selected-bg: rgba(239, 68, 68, 0.2);
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     html,
     body {
       height: 100%;
@@ -27,12 +32,14 @@
       color: #e6eef6;
     }
 
+    /* ================= Container ================= */
     .wrap {
-      max-width: 500px;
+      max-width: 520px;
       margin: 16px auto;
       padding: 16px;
     }
 
+    /* ================= Typography ================= */
     h1 {
       font-size: 1.5rem;
       margin: 0 0 8px;
@@ -44,13 +51,15 @@
       word-break: break-word;
     }
 
+    /* ================= Panels ================= */
     .panel {
       background: var(--panel);
       padding: 16px;
-      border-radius: 12px;
+      border-radius: 14px;
       margin-bottom: 16px;
     }
 
+    /* ================= Input ================= */
     .input-row {
       display: flex;
       flex-direction: column;
@@ -58,17 +67,17 @@
     }
 
     .input-row input[type=text] {
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
       background: transparent;
       color: inherit;
       font-size: 1rem;
     }
 
     .input-row button {
-      padding: 10px;
-      border-radius: 8px;
+      padding: 12px;
+      border-radius: 10px;
       background: var(--accent);
       border: none;
       color: #fff;
@@ -81,13 +90,13 @@
       opacity: 0.9;
     }
 
-    /* ==== Formats list with scroll ==== */
+    /* ================= Formats ================= */
     #formatsList {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-top: 8px;
-      max-height: 300px; /* scrollable height */
+      max-height: 300px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -103,7 +112,7 @@
 
     .fmt-row {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
       padding: 12px;
       border-radius: 12px;
@@ -118,32 +127,56 @@
       background: var(--selected-bg);
     }
 
-    .fmt-row input {
-      flex-shrink: 0;
-    }
-
     .fmt-meta {
       flex: 1;
       font-size: 0.9rem;
       word-break: break-word;
     }
 
-    /* Download list always visible */
+    /* ================= Actions ================= */
+    .sticky-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .sticky-actions label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .sticky-actions button {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    /* ================= Download List ================= */
     #downloadList {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-top: 16px;
-      min-height: 40px; /* always visible */
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      min-height: 40px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
       padding-top: 8px;
     }
 
     .dl-row {
       background: var(--dl-bg);
       padding: 10px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      border-radius: 10px;
       word-break: break-word;
     }
 
@@ -167,66 +200,72 @@
       text-decoration: none;
     }
 
-    .sticky-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .sticky-actions label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-
-    .sticky-actions button {
-      background: var(--accent);
-      color: #fff;
-      border-radius: 8px;
-      padding: 10px 14px;
-      border: none;
-      cursor: pointer;
-      transition: 0.2s;
-      font-size: 0.95rem;
-    }
-
-    .sticky-actions button:hover {
-      opacity: 0.9;
-    }
-
+    /* ================= Toast ================= */
     .toast {
       position: fixed;
-      right: 12px;
-      top: 12px;
+      right: 16px;
+      top: 16px;
       background: var(--toast-bg);
       color: #e6eef6;
       padding: 10px 14px;
-      border-radius: 8px;
+      border-radius: 10px;
       z-index: 2000;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
       opacity: 0.95;
-      transition: 0.3s;
       font-size: 0.9rem;
     }
 
-    @media(min-width:600px) {
+    /* ================= Tablet ================= */
+    @media (min-width: 640px) {
       .wrap {
-        max-width: 600px;
+        max-width: 720px;
       }
+
       h1 {
         font-size: 1.75rem;
       }
+
       .input-row {
         flex-direction: row;
       }
+
       .input-row input {
         flex: 1;
+      }
+    }
+
+    /* ================= Desktop ================= */
+    @media (min-width: 1024px) {
+      .wrap {
+        max-width: 960px;
+        padding: 24px;
+      }
+
+      #formatsPanel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      #formatsList {
+        max-height: 520px;
+      }
+
+      #downloadList {
+        margin-top: 0;
+        border-top: none;
+        padding-top: 0;
+      }
+    }
+
+    /* ================= Large Desktop ================= */
+    @media (min-width: 1280px) {
+      .wrap {
+        max-width: 1200px;
+      }
+
+      #formatsPanel {
+        grid-template-columns: minmax(0, 1fr) 420px;
       }
     }
   </style>
@@ -236,30 +275,28 @@
   <div class="wrap">
     <div class="panel">
       <h1>YouTube Downloader</h1>
-      <form id="inspectForm" method="POST">
-        <input type="hidden" name="action" value="inspect" />
+
+      <form id="inspectForm">
         <div class="input-row">
           <input type="text" name="url" placeholder="Paste YouTube URL" required />
           <button type="submit">Inspect</button>
         </div>
       </form>
 
-      <!-- formatsPanel luôn hiển thị -->
       <div id="formatsPanel" class="panel">
-        <h3 id="videoTitle">Paste URL để xem formats</h3>
-        <div id="formatsList"></div>
+        <div>
+          <h3 id="videoTitle">Paste URL để xem formats</h3>
+          <div id="formatsList"></div>
 
-        <div class="sticky-actions">
-          <label>
-            <input type="checkbox" id="audioOnly" /> MP3 only
-          </label>
-          <button id="downloadBtn">⬇ Download Selected</button>
+          <div class="sticky-actions">
+            <label>
+              <input type="checkbox" id="audioOnly" /> MP3 only
+            </label>
+            <button id="downloadBtn">⬇ Download Selected</button>
+          </div>
         </div>
 
-        <!-- download list luôn hiện -->
-        <div id="downloadList" aria-live="polite">
-          <!-- trống lúc đầu, hiển thị download queue -->
-        </div>
+        <div id="downloadList" aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -380,7 +417,7 @@
                 <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
                 <div class="fmt-meta">
                   <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                  <div class="muted">${(f.vcodec || 'none')!=="none"?f.vcodec:'audio'} / ${(f.acodec || 'none')!=="none"?f.acodec:'no audio'}</div>
+                  <div class="muted">${(f.vcodec || 'none') !== "none" ? f.vcodec : 'audio'} / ${(f.acodec || 'none') !== "none" ? f.acodec : 'no audio'}</div>
                 </div>
               `;
               const inputEl = row.querySelector('input');
