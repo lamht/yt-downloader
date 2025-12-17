@@ -17,21 +17,11 @@ import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
 
 # ---------- Cookie file from environment ----------
-_cookie_file_path = None
 def _get_cookie_file():
-    global _cookie_file_path
-    if _cookie_file_path is None:
-        cookie_str = os.environ.get("COOKIE")
-        if cookie_str is not None:
-            cookie_str = cookie_str.strip()
-        if cookie_str:
-            f = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8", suffix=".txt")
-            f.write(cookie_str)
-            f.flush()
-            f.close()
-            _cookie_file_path = f.name
-            logger.info("Cookie file created: %s", _cookie_file_path)
-    return _cookie_file_path
+    path = os.environ.get("COOKIE_PATH")
+    if path and os.path.isfile(path):
+        return path
+    return None
 
 # ---------- yt-dlp utils ----------
 WINDOWS_UA = (
