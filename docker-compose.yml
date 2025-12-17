@@ -1,3 +1,6 @@
+networks:
+  backend:
+    driver: bridge
 
 services:
   ytdownloader:
@@ -16,6 +19,8 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+    networks:
+      - backend
 
   forwarder:
     image: thanhlam00290/forwarder:latest
@@ -27,3 +32,5 @@ services:
     environment:
       URL_FORWARD: "http://ytdownloader:5000"
       FIREBASE_DB_URL: "https://xxx.firebaseio.com"
+    networks:
+      - backend
