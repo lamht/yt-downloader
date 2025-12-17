@@ -72,7 +72,7 @@ def _enable_deno() -> bool:
     - ENV DENO is truthy
     - deno binary exists in PATH
     """
-    env_flag = os.environ.get("DENO", "").lower()
+    env_flag = os.environ.get("ENABLE_DENO", "").lower()
     if env_flag not in ("1", "true", "yes", "on"):
         logger.info("DENO env disabled or not set")
         return False
