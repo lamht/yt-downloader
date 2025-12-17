@@ -116,7 +116,9 @@ def _base_ydl_opts(extra: dict | None = None):
 
     # ---------- JS runtime ----------
     if _enable_deno():
-        opts["js_runtimes"] = ["deno"]
+        opts["js_runtimes"] = {
+            "deno": {}
+        }
         logger.info("yt-dlp js_runtimes = deno")
 
     # ---------- Cookie ----------
