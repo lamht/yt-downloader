@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Install Deno (JS runtime for yt-dlp) ----------
-RUN curl -fsSL https://deno.land/install.sh | sh
-ENV PATH="/root/.deno/bin:$PATH"
-ENV ENABLE_DENO=1
+# RUN curl -fsSL https://deno.land/install.sh | sh
+# ENV PATH="/root/.deno/bin:$PATH"
+# ENV ENABLE_DENO=1
 # ---------- Python dependencies ----------
 COPY requirements.txt .
 RUN pip install --upgrade pip \
