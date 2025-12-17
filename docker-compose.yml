@@ -25,5 +25,5 @@ services:
       ytdownloader:
         condition: service_healthy
     environment:
-      FORWARD_URL: "http://ytdownloader:5000"
+      URL_FORWARD: "http://ytdownloader:5000"
       FIREBASE_DB_URL: "https://xxx.firebaseio.com"
