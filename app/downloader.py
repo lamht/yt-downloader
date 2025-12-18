@@ -202,18 +202,24 @@ def download_video(
     )
 
     try_opts_list = []
-
-    if format_id:
+    
+    if audio_only:
         try_opts_list.append(
             _base_ydl_opts({
                 "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": format_id,
+                "format": "140",
                 "noplaylist": True,
-            })
-        )
-
-    elif audio_only:
-        try_opts_list.append(
+            }),
+            _base_ydl_opts({
+                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
+                "format": "251",
+                "noplaylist": True,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "aac",
+                    "preferredquality": "192",
+                }],
+            }),
             _base_ydl_opts({
                 "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
                 "format": "bestaudio/best",
@@ -223,6 +229,15 @@ def download_video(
                     "preferredcodec": "aac",
                     "preferredquality": "192",
                 }],
+            })
+        )
+    
+    elif format_id:
+        try_opts_list.append(
+            _base_ydl_opts({
+                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
+                "format": format_id,
+                "noplaylist": True,
             })
         )
 
