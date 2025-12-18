@@ -7,265 +7,215 @@
   <title>YouTube Downloader - Enhanced</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
-    :root {
-      --bg: #071022;
-      --panel: #071427;
-      --card: rgba(11, 18, 32, 0.95);
-      --toast: rgba(7, 18, 39, 0.95);
-      --accent: #ef4444;
-      --accent-soft: rgba(239, 68, 68, 0.2);
-      --success: #10b981;
-      --muted: #9aa4b2;
-      --text: #e6eef6;
-      --border: rgba(255, 255, 255, 0.08);
-    }
+  :root {
+  --bg: #071022;
+  --panel: #071427;
+  --card: rgba(11, 18, 32, 0.95);
+  --toast: rgba(7, 18, 39, 0.95);
+  --accent: #ef4444;
+  --accent-soft: rgba(239, 68, 68, 0.2);
+  --success: #10b981;
+  --muted: #9aa4b2;
+  --text: #e6eef6;
+  --border: rgba(255, 255, 255, 0.08);
+}
 
-    * {
-      box-sizing: border-box;
-    }
+* { box-sizing: border-box; }
 
-    html,
-    body {
-      margin: 0;
-      height: 100%;
-      font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-    }
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
 
-    .wrap {
-      max-width: 520px;
-      margin: 16px auto;
-      padding: 16px;
-    }
+.wrap {
+  max-width: 520px;
+  margin: 16px auto;
+  padding: 16px;
+}
 
-    .panel {
-      background: var(--panel);
-      padding: 16px;
-      border-radius: 16px;
-    }
+.panel {
+  background: var(--panel);
+  padding: 16px;
+  border-radius: 16px;
+}
 
-    h1 {
-      margin: 0 0 12px;
-      font-size: 1.5rem;
-    }
+h1 { margin: 0 0 12px; font-size: 1.5rem; }
+h3 { margin: 0 0 8px; font-size: 1.05rem; word-break: break-word; }
+.muted { color: var(--muted); }
 
-    h3 {
-      margin: 0 0 8px;
-      font-size: 1.05rem;
-      word-break: break-word;
-    }
+/* Input Row */
+.input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+input[type=text] {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font-size: 1.05rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+input[type=text]:focus {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--accent);
+}
 
-    .muted {
-      color: var(--muted);
-    }
+/* Actions Row */
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+.actions-row button {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+.actions-row .chk { flex-shrink: 0; }
 
-    /* ---------------- Input Row ---------------- */
+/* Buttons */
+button {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .1s ease, opacity .15s ease;
+}
+button.secondary { background: rgba(255,255,255,0.08); }
+button:hover { opacity: .9; }
+button:active { transform: scale(.97); }
+button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6; }
 
-    .input-row {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
+/* Checkbox */
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  font-size: 1rem;
+}
+.chk input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.chk::before {
+  content: '';
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--muted);
+  border-radius: 6px;
+  background: transparent;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.chk input[type="checkbox"]:checked + span::before {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.chk span::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 12px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transition: all 0.2s ease;
+  top: 50%;
+  left: 6px;
+  transform: translateY(-50%) rotate(45deg);
+}
+.chk input[type="checkbox"]:checked + span::after { opacity: 1; }
 
-    input[type=text] {
-      width: 100%;
-      padding: 14px 16px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: inherit;
-      font-size: 1.05rem;
-      outline: none;
-      transition: all 0.2s ease;
-    }
+/* Formats Panel */
+#formatsPanel { display: flex; flex-direction: column; gap: 16px; }
+#downloadList, #formatsList { width: 100%; }
+#formatsList { max-height: 400px; overflow-y: auto; }
 
-    input[type=text]:focus {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: var(--accent);
-    }
+.fmt-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.fmt-row:hover { background: var(--accent-soft); }
+.fmt-row.selected { background: var(--accent); color: #fff; }
 
-    /* ---------------- Actions Row ---------------- */
+.dl-row { display:flex; justify-content: space-between; padding:8px 0; border-bottom:1px solid var(--border); }
 
-    .actions-row {
-      display: flex;
-      flex-wrap: wrap;
-      /* cho phép xuống dòng nếu quá hẹp */
-      gap: 10px;
-      margin-bottom: 12px;
-      align-items: center;
-    }
+/* Responsive */
+@media(min-width:640px){
+  .wrap { max-width:720px; }
+  h1 { font-size:1.75rem; }
+  .input-row { flex-direction:row; }
+  .input-row input { flex:1; }
+  .toast { font-size:1rem; padding:14px 20px; }
+}
 
-    .actions-row button {
-      flex: 1 1 auto;
-      /* button co giãn, cùng hàng */
-      min-width: 120px;
-      /* tối thiểu kích thước button */
-    }
+@media(min-width:768px){
+  #formatsPanel { flex-direction:row; gap:24px; }
+  #downloadList { width:45%; }
+  #formatsListPanel { width:55%; }
+  #formatsList .fmt-row { width:100%; }
+}
 
-    .actions-row .chk {
-      flex-shrink: 0;
-      /* checkbox không bị co */
-    }
+@media(min-width:1024px){
+  .wrap { max-width:960px; padding:24px; }
+}
 
-    /* ---------------- Buttons ---------------- */
+@media(min-width:1280px){
+  .wrap { max-width:1200px; }
+}
 
-    button {
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: none;
-      background: var(--accent);
-      color: #fff;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform .1s ease, opacity .15s ease;
-    }
+/* Toast */
+.toast {
+  position: fixed;
+  bottom:16px;
+  left:50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--toast);
+  color: var(--text);
+  padding:12px 16px;
+  border-radius:12px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  font-size:0.95rem;
+  font-weight:500;
+  opacity:0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index:9999;
+}
+.toast-show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    button.secondary {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    button:hover {
-      opacity: .9;
-    }
-
-    button:active {
-      transform: scale(.97);
-    }
-
-    button:disabled {
-      background-color: #555;
-      color: #ccc;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-
-    /* ---------------- Checkbox ---------------- */
-
-    .chk {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      user-select: none;
-      position: relative;
-      font-size: 1rem;
-    }
-
-    .chk input[type="checkbox"] {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-
-    .chk::before {
-      content: '';
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--muted);
-      border-radius: 6px;
-      background: transparent;
-      flex-shrink: 0;
-      transition: all 0.2s ease;
-    }
-
-    .chk input[type="checkbox"]:checked+span::before {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
-    .chk span::after {
-      content: '';
-      position: absolute;
-      width: 6px;
-      height: 12px;
-      border: solid white;
-      border-width: 0 2px 2px 0;
-      opacity: 0;
-      transition: all 0.2s ease;
-      top: 50%;
-      left: 6px;
-      transform: translateY(-50%) rotate(45deg);
-    }
-
-    .chk input[type="checkbox"]:checked+span::after {
-      opacity: 1;
-    }
-
-    /* ---------------- Responsive ---------------- */
-
-    @media(min-width:640px) {
-      .wrap {
-        max-width: 720px;
-      }
-
-      h1 {
-        font-size: 1.75rem;
-      }
-
-      .input-row {
-        flex-direction: row;
-      }
-
-      .input-row input {
-        flex: 1;
-      }
-    }
-
-    @media(min-width:1024px) {
-      .wrap {
-        max-width: 960px;
-        padding: 24px;
-      }
-    }
-
-    @media(min-width:1280px) {
-      .wrap {
-        max-width: 1200px;
-      }
-    }
-
-    /* ---------------- Toast ---------------- */
-    .toast {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: var(--toast);
-      color: var(--text);
-      padding: 12px 16px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      font-size: 0.95rem;
-      font-weight: 500;
-      opacity: 0;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      z-index: 9999;
-    }
-
-    .toast-show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    @media(min-width:640px) {
-      .toast {
-        font-size: 1rem;
-        padding: 14px 20px;
-      }
-    }
   </style>
 </head>
 
 <body>
-
   <div class="wrap">
     <div class="panel">
       <h1>YouTube Downloader</h1>
@@ -284,15 +234,31 @@
       </div>
 
       <div id="formatsPanel">
-        <div id="downloadList" aria-live="polite"></div>
-        <div>
+        <div id="downloadList" aria-live="polite">
+          <div id="dl-78ebe8a3cddb4fc08870ddc4a38dc765" class="dl-row">
+            <div class="dl-title">sample</div>
+            <div class="dl-status"><a class="dl-link" href="/download/aac/sample.aac" download="sample.aac">⬇
+                Download</a> aac</div>
+          </div>
+        </div>
+        <divid="formatsListPanel">
           <h3 id="videoTitle"></h3>
-          <div id="formatsList"></div>
+          <div id="formatsList">
+            <div class="fmt-row">
+              <input type="radio">
+              <div class="fmt-meta">
+                <b>sb0</b> storyboard
+                <br>
+                <span class="muted">
+                  audio / no audio
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
-
   <script>
     let socket = null;
     let downloads = {};
@@ -300,7 +266,6 @@
     let selectedFormat = null;
     let idleTimer = null;
 
-    // Show toast notifications
     function toast(msg, err = false) {
       if (!msg) return;
       const t = document.createElement('div');
@@ -312,7 +277,6 @@
       setTimeout(() => t.remove(), 3200);
     }
 
-    // Reset idle timer to auto-disconnect socket
     function resetIdle() {
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
@@ -321,50 +285,29 @@
           socket = null;
           toast('Disconnected (idle)', true);
         }
-      }, 300000); // 5 minutes
+      }, 300000);
     }
 
     function splitFilename(filename) {
       const lastDot = filename.lastIndexOf('.');
-      if (lastDot === -1) return { name: filename, ext: '' }; // không có ext
-      const name = filename.substring(0, lastDot);
-      const ext = filename.substring(lastDot + 1);
-      return { name, ext };
+      if (lastDot === -1) return { name: filename, ext: '' };
+      return {
+        name: filename.substring(0, lastDot),
+        ext: filename.substring(lastDot + 1)
+      };
     }
 
-    // Initialize Socket.IO connection and listeners
     function initSocketAsync() {
       return new Promise((resolve, reject) => {
         if (socket && socket.connected) return resolve(socket);
-
         socket = io({ timeout: 5000, reconnectionAttempts: 3 });
-
-        ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt =>
-          window.addEventListener(evt, resetIdle, true)
-        );
-
-        socket.on('connect', () => {
-          resetIdle();
-          resolve(socket); // connect thành công
-        });
-
+        ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => window.addEventListener(evt, resetIdle, true));
+        socket.on('connect', () => { resetIdle(); resolve(socket); });
         socket.on('connect_error', err => reject(new Error('Socket connection failed')));
-
-        socket.on('download_started', data => {
-          if (!data?.key) return;
-          myKeys.add(data.key);
-          setStatus(data.key, data.message || 'Queued');
-        });
-
-        socket.on('download_status', data => {
-          if (!data || !myKeys.has(data.key)) return;
-          setStatus(data.key, data.message || 'Processing…');
-          if (data.title) setTitle(data.key, data.title);
-        });
-
+        socket.on('download_started', data => { if (!data?.key) return; myKeys.add(data.key); setStatus(data.key, data.message || 'Queued'); });
+        socket.on('download_status', data => { if (!data || !myKeys.has(data.key)) return; setStatus(data.key, data.message || 'Processing…'); if (data.title) setTitle(data.key, data.title); });
         socket.on('download_complete', data => {
           if (!data || !myKeys.has(data.key)) return;
-
           if (data.status === 'done' && data.download_url) {
             const url = data.download_url;
             const filename = decodeURIComponent(url.split('/').pop());
@@ -375,86 +318,66 @@
             setStatus(data.key, `Error: ${data.message || 'failed'}`);
             toast(data.message || 'Download failed', true);
           }
-
           myKeys.delete(data.key);
         });
       });
     }
 
-    // Create a new row in the download list
     function createRow(key, title) {
       if (downloads[key]) return;
-
       const row = document.createElement('div');
       row.id = `dl-${key}`;
       row.className = 'dl-row';
-      row.innerHTML = `
-    <div class="dl-title">${title || 'Download'}</div>
-    <div class="dl-status">Queued</div>
-  `;
+      row.innerHTML = `<div class="dl-title">${title || 'Download'}</div><div class="dl-status">Queued</div>`;
       document.getElementById('downloadList').appendChild(row);
       downloads[key] = row;
     }
 
-    // Update the status of a download row
     function setStatus(key, html) {
       const el = downloads[key]?.querySelector('.dl-status');
       if (el) el.innerHTML = html;
     }
+
     function setTitle(key, html) {
       const el = downloads[key]?.querySelector('.dl-title');
       if (el) el.innerHTML = html;
     }
 
-    // DOM Ready
+    function reset() {
+      downloads = {};
+      myKeys.clear();
+      document.getElementById('formatsList').innerHTML = '';
+      document.getElementById('downloadList').innerHTML = '';
+      document.getElementById('videoTitle').textContent = '';
+      selectedFormat = null;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const urlInput = document.getElementById('url');
       const inspectBtn = document.getElementById('inspectBtn');
       const downloadBtn = document.getElementById('downloadBtn');
       const formatsList = document.getElementById('formatsList');
       const audioOnly = document.getElementById('audioOnly');
+      //reset();
 
-      // Clear formats when URL changes
-      urlInput.addEventListener('input', () => {
-        formatsList.innerHTML = '';
-        document.getElementById('videoTitle').textContent = '';
-        selectedFormat = null;
-      });
+      urlInput.addEventListener('input', () => { formatsList.innerHTML = ''; document.getElementById('videoTitle').textContent = ''; selectedFormat = null; });
 
-      // Inspect button click
       inspectBtn.onclick = async () => {
         const url = urlInput.value.trim();
         if (!url) return toast('URL required', true);
-
         inspectBtn.disabled = true;
         formatsList.innerHTML = '';
         selectedFormat = null;
 
         try {
-          const res = await fetch('/inspect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-          });
-
+          const res = await fetch('/inspect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
           if (!res.ok) throw new Error('Inspect failed');
-
           const data = await res.json();
           document.getElementById('videoTitle').textContent = data.title || '';
-
           data.formats?.forEach(f => {
             const row = document.createElement('div');
             row.className = 'fmt-row';
-            row.innerHTML = `
-          <input type="radio">
-          <div class="fmt-meta">
-            <b>${f.format_id}</b> ${f.format_note || ''}
-            <br>
-            <span class="muted">
-              ${f.vcodec !== 'none' ? f.vcodec : 'audio'} / ${f.acodec !== 'none' ? f.acodec : 'no audio'}
-            </span>
-          </div>
-        `;
+            row.innerHTML = `<input type="radio"><div class="fmt-meta"><b>${f.format_id}</b> ${f.format_note || ''}<br><span class="muted">${f.vcodec !== 'none' ? f.vcodec : 'audio'} / ${f.acodec !== 'none' ? f.acodec : 'no audio'}</span></div>`;
             row.onclick = () => {
               selectedFormat = f.format_id;
               formatsList.querySelectorAll('.fmt-row').forEach(r => r.classList.remove('selected'));
@@ -462,46 +385,23 @@
             };
             formatsList.appendChild(row);
           });
-
-        } catch (e) {
-          toast(e.message, true);
-        } finally {
-          inspectBtn.disabled = false;
-        }
+        } catch (e) { toast(e.message, true); } finally { inspectBtn.disabled = false; }
       };
 
-      // Download button click
       downloadBtn.onclick = async () => {
         const url = urlInput.value.trim();
         if (!url) return toast('Paste URL first', true);
         if (!selectedFormat && audioOnly.checked) selectedFormat = "140";
-
         downloadBtn.disabled = true;
         await initSocketAsync();
-
         try {
-          const res = await fetch('/download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url,
-              format_id: selectedFormat,
-              audio_only: audioOnly.checked ? 1 : 0
-            })
-          });
+          const res = await fetch('/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, format_id: selectedFormat, audio_only: audioOnly.checked ? 1 : 0 }) });
           selectedFormat = null;
-
           if (!res.ok) throw new Error('Queue failed');
-
           const data = await res.json();
           if (data.key) createRow(data.key, data.title);
           toast('Download queued');
-
-        } catch (e) {
-          toast(e.message, true);
-        } finally {
-          downloadBtn.disabled = false;
-        }
+        } catch (e) { toast(e.message, true); } finally { downloadBtn.disabled = false; }
       };
     });
   </script>
