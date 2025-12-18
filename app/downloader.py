@@ -88,39 +88,51 @@ def _enable_deno() -> bool:
 # Global dict để lưu percent trước đó
 _last_percent = {}
 
-def my_hook(d, key, socket=None):
-    if d['status'] == 'downloading':
-        downloaded = d.get('downloaded_bytes', 0)
-        total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-        percent = downloaded / total * 100 if total > 0 else 0
-        percent_rounded = round(percent, 2)
-        msg = f"Downloading {d.get('filename')}: {percent_rounded}%"
-        status = "downloading"
+def my_hook(d, key=None, socket=None):
+    try:
+        status = d.get("status")
+        filename = d.get("filename", "unknown")
+        
+        if status == "downloading":
+            downloaded = d.get("downloaded_bytes", 0)
+            total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+            percent = downloaded / total * 100 if total > 0 else 0
+            percent_rounded = round(percent, 2)
 
-        # Kiểm tra sự thay đổi >= 2%
-        last = _last_percent.get(key, -1)
-        if abs(percent_rounded - last) < 2:
-            return  # Không log, không gửi socket
-        _last_percent[key] = percent_rounded
+            # Kiểm tra thay đổi ≥ 2%
+            last = _last_percent.get(key, -1)
+            if abs(percent_rounded - last) < 2:
+                return
+            _last_percent[key] = percent_rounded
 
-    elif d['status'] == 'finished':
-        msg = f"Finished downloading {d.get('filename')}"
-        status = "done"
-        percent_rounded = 100
-        _last_percent.pop(key, None)
+            msg = f"Downloading {filename}: {percent_rounded}%"
+            logger.info(msg)
 
-    else:
-        return
+            if socket and key is not None:
+                socket.emit("download_status", {
+                    "key": key,
+                    "status": "downloading",
+                    "message": msg,
+                    "percent": percent_rounded
+                })
 
-    logger.info(msg)
+        elif status == "finished":
+            msg = f"Finished downloading {filename}"
+            percent_rounded = 100
+            logger.info(msg)
+            _last_percent.pop(key, None)
 
-    if socket:
-        socket.emit("download_status", {
-            "key": key,
-            "status": status,
-            "message": msg,
-            "percent": percent_rounded
-        })
+            if socket and key is not None:
+                socket.emit("download_status", {
+                    "key": key,
+                    "status": "done",
+                    "message": msg,
+                    "percent": percent_rounded
+                })
+
+    except Exception as e:
+        # Bắt tất cả lỗi trong hook để không làm crash yt-dlp
+        logger.warning("my_hook error: %s", e)
    
 class ErrorOnlyLogger:
     def debug(self, msg): pass
@@ -219,23 +231,41 @@ def download_video(
     key: str | None = None,
     socket=None
 ):
+    """
+    Download video or audio using yt-dlp.
+    Always download fresh, no check file exist.
+    """
+
+    import functools
     os.makedirs(out_dir, exist_ok=True)
 
     logger.info(
         "Download called | url=%s | format_id=%s | audio_only=%s",
-        url,
-        format_id,
-        audio_only,
+        url, format_id, audio_only,
     )
 
     try_opts_list = []
 
-    # ---------- Build options list ----------
+    # ---------- Build format options ----------
     if audio_only:
         formats_to_try = [
-            {"format": "140"},
-            {"format": "251", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "aac", "preferredquality": "192"}]},
-            {"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "aac", "preferredquality": "192"}]},
+            {"format": "140"},  # m4a
+            {
+                "format": "251",
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "aac",
+                    "preferredquality": "192",
+                }]
+            },
+            {
+                "format": "bestaudio/best",
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "aac",
+                    "preferredquality": "192",
+                }]
+            },
         ]
     elif format_id:
         formats_to_try = [{"format": format_id}]
@@ -248,9 +278,6 @@ def download_video(
     # ---------- Prepare yt-dlp options ----------
     for fopt in formats_to_try:
         outtmpl = f"{out_dir}/%(title)s.%(format_id)s.%(ext)s"
-        if audio_only and "postprocessors" in fopt:
-            # extract audio may change ext
-            outtmpl = f"{out_dir}/%(title)s.%(format_id)s.%(ext)s"
         ydl_opts = _base_ydl_opts({
             "outtmpl": outtmpl,
             "noplaylist": True,
@@ -259,19 +286,22 @@ def download_video(
         try_opts_list.append(ydl_opts)
 
     # ---------- Download loop ----------
-    for ydl_opts in try_opts_list:      
-
+    for ydl_opts in try_opts_list:
         try:
             logger.info("Trying format: %s", ydl_opts.get("format"))
-            import functools
             ydl_opts["progress_hooks"] = [functools.partial(my_hook, key=key, socket=socket)]
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get("title") or "download"
 
-                matches = glob.glob(pattern)
-                filepath = max(matches, key=os.path.getctime) if matches else ydl.prepare_filename(info)
+                if info.get("_filename"):
+                    filepath = info["_filename"]
+                elif info.get("requested_downloads"):
+                    # fallback: lấy filepath của download đầu tiên
+                    filepath = info["requested_downloads"][0].get("filepath") or ydl.prepare_filename(info)
+                else:
+                    filepath = ydl.prepare_filename(info)
 
                 logger.info("Downloaded file: %s", filepath)
                 return {"title": title, "filepath": filepath}
