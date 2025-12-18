@@ -88,7 +88,13 @@ def _enable_deno() -> bool:
 
 # ---------- yt-dlp utils ----------
 def my_hook(d):
-    logger.info("Progress: %s", d)
+    if d['status'] == 'downloading':
+        downloaded = d.get('downloaded_bytes', 0)
+        total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+        percent = downloaded / total * 100 if total > 0 else 0
+        logger.info("Downloading %s: %.2f%%", d.get('filename'), percent)
+    elif d['status'] == 'finished':
+        logger.info("Finished downloading: %s", d.get('filename'))
 
 class ErrorOnlyLogger:
     def debug(self, msg): pass
