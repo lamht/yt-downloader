@@ -85,16 +85,31 @@ def _enable_deno() -> bool:
 
 
 # ---------- yt-dlp utils ----------
+# Global dict để lưu percent trước đó
+_last_percent = {}
+
 def my_hook(d, key, socket=None):
     if d['status'] == 'downloading':
         downloaded = d.get('downloaded_bytes', 0)
         total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
         percent = downloaded / total * 100 if total > 0 else 0
-        msg = f"Downloading {d.get('filename')}: {percent:.2f}%"
+        percent_rounded = round(percent, 2)
+        msg = f"Downloading {d.get('filename')}: {percent_rounded}%"
         status = "downloading"
+
+        # Kiểm tra sự thay đổi >= 2%
+        last = _last_percent.get(key, -1)
+        if abs(percent_rounded - last) < 2:
+            return  # Không log, không gửi socket
+        _last_percent[key] = percent_rounded
+
     elif d['status'] == 'finished':
         msg = f"Finished downloading {d.get('filename')}"
         status = "done"
+        percent_rounded = 100
+        # Xóa key khỏi _last_percent để giải phóng bộ nhớ
+        _last_percent.pop(key, None)
+
     else:
         return
 
@@ -105,7 +120,7 @@ def my_hook(d, key, socket=None):
             "key": key,
             "status": status,
             "message": msg,
-            "percent": round(percent, 2)
+            "percent": percent_rounded
         })
    
 class ErrorOnlyLogger:
@@ -202,7 +217,8 @@ def download_video(
     out_dir: str = "downloads",
     format_id: str | None = None,
     audio_only: bool = False,
-    key: str | None = None, socket=None
+    key: str | None = None,
+    socket=None
 ):
     os.makedirs(out_dir, exist_ok=True)
 
@@ -214,78 +230,56 @@ def download_video(
     )
 
     try_opts_list = []
-    
-    if audio_only:
-        try_opts_list.append(
-            _base_ydl_opts({
-                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": "140",
-                "noplaylist": True,
-            }),
-            _base_ydl_opts({
-                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": "251",
-                "noplaylist": True,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "aac",
-                    "preferredquality": "192",
-                }],
-            }),
-            _base_ydl_opts({
-                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": "bestaudio/best",
-                "noplaylist": True,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "aac",
-                    "preferredquality": "192",
-                }],
-            })
-        )
-    
-    elif format_id:
-        try_opts_list.append(
-            _base_ydl_opts({
-                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": format_id,
-                "noplaylist": True,
-            })
-        )
 
+    # ---------- Build options list ----------
+    if audio_only:
+        formats_to_try = [
+            {"format": "140"},
+            {"format": "251", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "aac", "preferredquality": "192"}]},
+            {"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "aac", "preferredquality": "192"}]},
+        ]
+    elif format_id:
+        formats_to_try = [{"format": format_id}]
     else:
-        try_opts_list.extend([
-            _base_ydl_opts({
-                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": "bestvideo+bestaudio/best",
-                "merge_output_format": "mp4",
-                "noplaylist": True,
-            }),
-            _base_ydl_opts({
-                "outtmpl": f"{out_dir}/%(title)s.%(ext)s",
-                "format": "best",
-                "noplaylist": True,
-            }),
-        ])
+        formats_to_try = [
+            {"format": "bestvideo+bestaudio/best", "merge_output_format": "mp4"},
+            {"format": "best"},
+        ]
+
+    # ---------- Prepare yt-dlp options ----------
+    for fopt in formats_to_try:
+        outtmpl = f"{out_dir}/%(title)s.%(format_id)s.%(ext)s"
+        if audio_only and "postprocessors" in fopt:
+            # extract audio may change ext
+            outtmpl = f"{out_dir}/%(title)s.%(format_id)s.%(ext)s"
+        ydl_opts = _base_ydl_opts({
+            "outtmpl": outtmpl,
+            "noplaylist": True,
+            **fopt
+        })
+        try_opts_list.append(ydl_opts)
 
     # ---------- Download loop ----------
     for ydl_opts in try_opts_list:
+        template = ydl_opts.get("outtmpl", "%(title)s.%(format_id)s.%(ext)s")
+        pattern = template.replace("%(title)s", "*").replace("%(format_id)s", "*").replace("%(ext)s", "*")
+        existing_files = glob.glob(pattern)
+        if existing_files:
+            filepath = max(existing_files, key=os.path.getctime)
+            logger.info("File already exists, skipping download: %s", filepath)
+            return {"title": os.path.basename(filepath), "filepath": filepath}
+
         try:
-            logger.info("Trying format: %s", ydl_opts.get("format"))            
+            logger.info("Trying format: %s", ydl_opts.get("format"))
+            import functools
             ydl_opts["progress_hooks"] = [functools.partial(my_hook, key=key, socket=socket)]
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get("title") or "download"
 
-                pattern = os.path.join(out_dir, f"{title}.*")
                 matches = glob.glob(pattern)
-
-                filepath = (
-                    max(matches, key=os.path.getctime)
-                    if matches
-                    else ydl.prepare_filename(info)
-                )
+                filepath = max(matches, key=os.path.getctime) if matches else ydl.prepare_filename(info)
 
                 logger.info("Downloaded file: %s", filepath)
                 return {"title": title, "filepath": filepath}
