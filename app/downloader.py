@@ -99,9 +99,8 @@ def my_hook(d, key=None, socket=None):
             percent = downloaded / total * 100 if total > 0 else 0
             percent_rounded = round(percent, 2)
 
-            # Kiểm tra thay đổi ≥ 2%
             last = _last_percent.get(key, -1)
-            if abs(percent_rounded - last) < 2:
+            if abs(percent_rounded - last) < 10:
                 return
             _last_percent[key] = percent_rounded
 
@@ -131,7 +130,6 @@ def my_hook(d, key=None, socket=None):
                 })
 
     except Exception as e:
-        # Bắt tất cả lỗi trong hook để không làm crash yt-dlp
         logger.warning("my_hook error: %s", e)
    
 class ErrorOnlyLogger:
