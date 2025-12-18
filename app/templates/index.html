@@ -358,7 +358,7 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
       const downloadBtn = document.getElementById('downloadBtn');
       const formatsList = document.getElementById('formatsList');
       const audioOnly = document.getElementById('audioOnly');
-      //reset();
+      reset();
 
       urlInput.addEventListener('input', () => { formatsList.innerHTML = ''; document.getElementById('videoTitle').textContent = ''; selectedFormat = null; });
 
