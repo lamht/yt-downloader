@@ -30,8 +30,10 @@ jobs:
 
       - name: Minify index.html
         run: |
-          if [ -f templates/index.html ]; then
-            html-minifier \
+          pwd 
+          ls -la app/templates/
+          if [ -f app/templates/index.html ]; then
+            html-minifier-terser \
               --collapse-whitespace \
               --remove-comments \
               --remove-redundant-attributes \
@@ -39,9 +41,9 @@ jobs:
               --remove-style-link-type-attributes \
               --minify-css true \
               --minify-js true \
-              -o templates/index.html \
-              templates/index.html
-              echo "Minification completed for templates/index.html"
+              -o app/templates/index.html \
+              app/templates/index.html
+            echo "Minification completed for app/templates/index.html"
           fi
 
       - name: Set up Docker Buildx
