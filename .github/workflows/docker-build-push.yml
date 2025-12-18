@@ -41,6 +41,7 @@ jobs:
               --minify-js true \
               -o templates/index.html \
               templates/index.html
+              echo "Minification completed for templates/index.html"
           fi
 
       - name: Set up Docker Buildx
