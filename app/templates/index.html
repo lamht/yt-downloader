@@ -231,6 +231,36 @@
         max-width: 1200px;
       }
     }
+
+    /* ---------------- Toast ---------------- */
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--toast);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      font-size: 0.95rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 9999;
+    }
+
+    .toast-show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media(min-width:640px) {
+      .toast {
+        font-size: 1rem;
+        padding: 14px 20px;
+      }
+    }
   </style>
 </head>
 
@@ -278,6 +308,7 @@
       t.textContent = msg;
       if (err) t.style.background = '#8b1c1c';
       document.body.appendChild(t);
+      setTimeout(() => t.classList.add('toast-show'), 50);
       setTimeout(() => t.remove(), 3200);
     }
 
