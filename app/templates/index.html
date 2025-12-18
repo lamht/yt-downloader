@@ -61,27 +61,56 @@
       color: var(--muted);
     }
 
+    /* ---------------- Input Row ---------------- */
+
     .input-row {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 12px;
+      margin-bottom: 12px;
     }
 
     input[type=text] {
       width: 100%;
-      padding: 12px 14px;
+      padding: 14px 16px;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: transparent;
       color: inherit;
-      font-size: 1rem;
+      font-size: 1.05rem;
       outline: none;
+      transition: all 0.2s ease;
     }
 
     input[type=text]:focus {
+      background: rgba(255, 255, 255, 0.05);
       border-color: var(--accent);
     }
+
+    /* ---------------- Actions Row ---------------- */
+
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      /* cho phép xuống dòng nếu quá hẹp */
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .actions-row button {
+      flex: 1 1 auto;
+      /* button co giãn, cùng hàng */
+      min-width: 120px;
+      /* tối thiểu kích thước button */
+    }
+
+    .actions-row .chk {
+      flex-shrink: 0;
+      /* checkbox không bị co */
+    }
+
+    /* ---------------- Buttons ---------------- */
 
     button {
       padding: 12px 14px;
@@ -107,24 +136,25 @@
       transform: scale(.97);
     }
 
-    .actions-row {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 12px;
+    button:disabled {
+      background-color: #555;
+      color: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
+
+    /* ---------------- Checkbox ---------------- */
 
     .chk {
       display: flex;
       align-items: center;
+      gap: 10px;
       cursor: pointer;
       user-select: none;
       position: relative;
       font-size: 1rem;
-      gap: 10px;
     }
 
-    /* Ẩn checkbox mặc định */
     .chk input[type="checkbox"] {
       opacity: 0;
       width: 0;
@@ -132,26 +162,25 @@
       position: absolute;
     }
 
-    /* Custom box */
     .chk::before {
       content: '';
-      display: inline-block;
-      width: 22px;
-      height: 22px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 24px;
+      height: 24px;
       border: 2px solid var(--muted);
       border-radius: 6px;
       background: transparent;
-      transition: all 0.2s ease;
       flex-shrink: 0;
+      transition: all 0.2s ease;
     }
 
-    /* Khi checked */
     .chk input[type="checkbox"]:checked+span::before {
       background: var(--accent);
       border-color: var(--accent);
     }
 
-    /* Checkmark */
     .chk span::after {
       content: '';
       position: absolute;
@@ -159,120 +188,18 @@
       height: 12px;
       border: solid white;
       border-width: 0 2px 2px 0;
-      transform: rotate(45deg);
       opacity: 0;
       transition: all 0.2s ease;
+      top: 50%;
       left: 6px;
-      top: 3px;
+      transform: translateY(-50%) rotate(45deg);
     }
 
     .chk input[type="checkbox"]:checked+span::after {
       opacity: 1;
     }
 
-    /* ======================= */
-
-    #formatsPanel {
-      margin-top: 12px;
-    }
-
-    #formatsList {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 300px;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
-
-    #formatsList::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    #formatsList::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, .2);
-      border-radius: 3px;
-    }
-
-    .fmt-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      padding: 12px;
-      border-radius: 14px;
-      background: var(--card);
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: .15s ease;
-    }
-
-    .fmt-row input {
-      pointer-events: none;
-    }
-
-    .fmt-row.selected {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-
-    .fmt-row:active {
-      transform: scale(.98);
-    }
-
-    .fmt-meta {
-      flex: 1;
-      font-size: .88rem;
-      line-height: 1.35;
-      word-break: break-word;
-    }
-
-    #downloadList {
-      margin-top: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      border-top: 1px solid var(--border);
-      padding-top: 12px;
-      min-height: 40px;
-    }
-
-    .dl-row {
-      background: var(--card);
-      padding: 10px 12px;
-      border-radius: 12px;
-    }
-
-    .dl-title {
-      font-weight: 700;
-      font-size: .92rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .dl-status {
-      margin-top: 4px;
-      font-size: .82rem;
-      color: var(--muted);
-    }
-
-    a.dl-link {
-      color: #7dd3fc;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    .toast {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      background: var(--toast);
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-size: .9rem;
-      z-index: 9999;
-      opacity: .96;
-    }
+    /* ---------------- Responsive ---------------- */
 
     @media(min-width:640px) {
       .wrap {
@@ -290,18 +217,6 @@
       .input-row input {
         flex: 1;
       }
-
-      .actions-row {
-        flex-direction: row;
-        align-items: center;
-      }
-    }
-
-    button:disabled {
-      background-color: #555;
-      color: #ccc;
-      cursor: not-allowed;
-      opacity: 0.6;
     }
 
     @media(min-width:1024px) {
@@ -309,31 +224,11 @@
         max-width: 960px;
         padding: 24px;
       }
-
-      #formatsPanel {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
-        gap: 16px;
-        align-items: start;
-      }
-
-      #downloadList {
-        margin-top: 0;
-        border-top: none;
-        padding-top: 0;
-        background: rgba(255, 255, 255, .03);
-        padding: 12px;
-        border-radius: 14px;
-      }
     }
 
     @media(min-width:1280px) {
       .wrap {
         max-width: 1200px;
-      }
-
-      #formatsPanel {
-        grid-template-columns: minmax(0, 1fr) 420px;
       }
     }
   </style>
