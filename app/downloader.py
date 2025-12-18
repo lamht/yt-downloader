@@ -2,10 +2,8 @@ import os
 import shutil
 import tempfile
 import glob
-import logging
-from flask import Flask
-from flask_socketio import SocketIO
 from log_config import setup_logger
+import functools
 
 import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
@@ -87,15 +85,29 @@ def _enable_deno() -> bool:
 
 
 # ---------- yt-dlp utils ----------
-def my_hook(d):
+def my_hook(d, key, socket=None):
     if d['status'] == 'downloading':
         downloaded = d.get('downloaded_bytes', 0)
         total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
         percent = downloaded / total * 100 if total > 0 else 0
-        logger.info("Downloading %s: %.2f%%", d.get('filename'), percent)
+        msg = f"Downloading {d.get('filename')}: {percent:.2f}%"
+        status = "downloading"
     elif d['status'] == 'finished':
-        logger.info("Finished downloading: %s", d.get('filename'))
+        msg = f"Finished downloading {d.get('filename')}"
+        status = "done"
+    else:
+        return
 
+    logger.info(msg)
+
+    if socket:
+        socket.emit("download_status", {
+            "key": key,
+            "status": status,
+            "message": msg,
+            "percent": round(percent, 2)
+        })
+   
 class ErrorOnlyLogger:
     def debug(self, msg): pass
     def info(self, msg): pass
@@ -110,7 +122,6 @@ def _base_ydl_opts(extra: dict | None = None):
     """
     opts = {
         "quiet": True,
-        "progress_hooks": [my_hook],
         "logger": ErrorOnlyLogger(),
         "no_warnings": False,
         "retries": 3,
@@ -191,6 +202,7 @@ def download_video(
     out_dir: str = "downloads",
     format_id: str | None = None,
     audio_only: bool = False,
+    key: str | None = None, socket=None
 ):
     os.makedirs(out_dir, exist_ok=True)
 
@@ -259,7 +271,8 @@ def download_video(
     # ---------- Download loop ----------
     for ydl_opts in try_opts_list:
         try:
-            logger.info("Trying format: %s", ydl_opts.get("format"))
+            logger.info("Trying format: %s", ydl_opts.get("format"))            
+            ydl_opts["progress_hooks"] = [functools.partial(my_hook, key=key, socket=socket)]
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)

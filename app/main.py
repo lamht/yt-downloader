@@ -135,7 +135,8 @@ def download():
             result = download_video(
                 url,
                 format_id=format_id,
-                audio_only=audio_only
+                audio_only=audio_only,
+                key=key, socket=socketio
             )
 
             socketio.emit("download_status", {
