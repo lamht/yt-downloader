@@ -142,10 +142,12 @@ def download():
                 "key": key,
                 "status": "processing",
                 "message": "Processing..."
+                "title": result["title"]
             })
 
             final_path = process_file(result["filepath"], "aac")
-            file_name = quote(os.path.basename(final_path))
+            file_name = os.path.basename(final_path)
+            file_name_safe = quote(file_name)
 
             _set(key, {
                 "status": "done",
@@ -155,7 +157,8 @@ def download():
             socketio.emit("download_complete", {
                 "key": key,
                 "status": "done",
-                "download_url": f"/download/aac/{file_name}"
+                "title": result["title"],
+                "download_url": f"/download/aac/{file_name_safe}"
             })
 
         except Exception as e:
