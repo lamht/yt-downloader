@@ -107,7 +107,6 @@ def my_hook(d, key, socket=None):
         msg = f"Finished downloading {d.get('filename')}"
         status = "done"
         percent_rounded = 100
-        # Xóa key khỏi _last_percent để giải phóng bộ nhớ
         _last_percent.pop(key, None)
 
     else:

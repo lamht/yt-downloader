@@ -4,21 +4,14 @@ eventlet.monkey_patch()
 import os
 import time
 import uuid
-import logging
 import traceback
 import subprocess
 from threading import Lock
 from urllib.parse import quote
 
-from flask import (
-    Flask, request, jsonify,
-    send_from_directory, Response, make_response
-)
+from flask import Flask, request, jsonify, send_from_directory, Response, make_response
 from flask_socketio import SocketIO
 from log_config import setup_logger
-
-from downloader import download_video, get_video_info
-
 
 # ---------- Setup ----------
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -37,12 +30,15 @@ logger.info("Logger for main initialized")
 _downloads = {}
 _lock = Lock()
 
+
 def _new_key():
     return uuid.uuid4().hex
+
 
 def _set(k, data):
     with _lock:
         _downloads[k] = {**_downloads.get(k, {}), **data}
+
 
 # ---------- File processor ----------
 def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
@@ -78,8 +74,8 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
 
     return dst
 
-# ---------- Routes ----------
 
+# ---------- Routes ----------
 @app.route("/")
 def index():
     response = make_response(send_from_directory("templates", "index.html"))
@@ -87,6 +83,7 @@ def index():
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
 
 @app.route("/inspect", methods=["POST"])
 def inspect():
@@ -96,12 +93,15 @@ def inspect():
     if not url:
         return jsonify({"error": "URL is required"}), 400
 
+    # Lazy import
+    from downloader import get_video_info
     info = get_video_info(url)
 
     return jsonify({
         "title": info.get("title"),
         "formats": info.get("formats", [])
     })
+
 
 @app.route("/download", methods=["POST"])
 def download():
@@ -117,45 +117,27 @@ def download():
     key = _new_key()
     _set(key, {"status": "queued"})
 
-    socketio.emit("download_started", {
-        "key": key,
-        "status": "queued"
-    })
+    socketio.emit("download_started", {"key": key, "status": "queued"})
 
     def bg_download():
         try:
+            # Lazy import inside background
+            from downloader import download_video
+
             _set(key, {"status": "downloading"})
-            socketio.emit("download_status", {
-                "key": key,
-                "status": "downloading",
-                "message": "Downloading..."
-            })
+            socketio.emit("download_status", {"key": key, "status": "downloading", "message": "Downloading..."})
             logger.info("Downloading %s", key)
 
-            result = download_video(
-                url,
-                format_id=format_id,
-                audio_only=audio_only,
-                key=key, socket=socketio
-            )
+            result = download_video(url, format_id=format_id, audio_only=audio_only, key=key, socket=socketio)
 
-            socketio.emit("download_status", {
-                "key": key,
-                "status": "processing",
-                "message": "Processing...",
-                "title": result["title"]
-            })
+            socketio.emit("download_status", {"key": key, "status": "processing", "message": "Processing...", "title": result["title"]})
             logger.info("Processing %s", key)
 
-
-            final_path = process_file(result["filepath"], "aac")
+            final_path = process_file(result["filepath"], "aac", audio_only=audio_only)
             file_name = os.path.basename(final_path)
             file_name_safe = quote(file_name)
 
-            _set(key, {
-                "status": "done",
-                "filepath": final_path
-            })
+            _set(key, {"status": "done", "filepath": final_path})
 
             socketio.emit("download_complete", {
                 "key": key,
@@ -167,20 +149,14 @@ def download():
         except Exception as e:
             logger.error(traceback.format_exc())
             _set(key, {"status": "error", "error": str(e)})
-
-            socketio.emit("download_complete", {
-                "key": key,
-                "status": "error",
-                "message": str(e)
-            })
+            socketio.emit("download_complete", {"key": key, "status": "error", "message": str(e)})
             logger.info("Error %s", key)
 
+    # Start background task
     socketio.start_background_task(bg_download)
 
-    return jsonify({
-        "key": key,
-        "status": "queued"
-    })
+    return jsonify({"key": key, "status": "queued"})
+
 
 @app.route("/download/aac/<path:filename>")
 def download_aac(filename):
@@ -190,40 +166,29 @@ def download_aac(filename):
     if not os.path.exists(path):
         return "File not found", 404
 
-    ascii_filename = ''.join(
-        c if ord(c) < 128 else '_'
-        for c in filename
-    )
+    ascii_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
     safe_filename = quote(filename)
-
     file_size = os.path.getsize(path)
 
     headers = {
-        "Content-Disposition":
-            f"attachment; filename='{ascii_filename}'; "
-            f"filename*=UTF-8''{safe_filename}",
+        "Content-Disposition": f"attachment; filename='{ascii_filename}'; filename*=UTF-8''{safe_filename}",
         "Content-Length": str(file_size),
         "Content-Type": "application/octet-stream"
     }
 
     def generate():
         with open(path, "rb") as f:
-            while True:
-                chunk = f.read(8192)
-                if not chunk:
-                    break
+            while chunk := f.read(8192):
                 yield chunk
 
     return Response(generate(), headers=headers)
 
+
 # ---------- Health check ----------
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "ok",
-        "service": "yt-downloader",
-        "timestamp": int(time.time())
-    }), 200
+    return jsonify({"status": "ok", "service": "yt-downloader", "timestamp": int(time.time())}), 200
+
 
 # ---------- Run ----------
 if __name__ == "__main__":
