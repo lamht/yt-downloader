@@ -347,6 +347,14 @@
       }, 300000); // 5 minutes
     }
 
+    function splitFilename(filename) {
+        const lastDot = filename.lastIndexOf('.');
+        if (lastDot === -1) return { name: filename, ext: '' }; // không có ext
+        const name = filename.substring(0, lastDot);
+        const ext = filename.substring(lastDot + 1);
+        return { name, ext };
+      }
+
     // Initialize Socket.IO connection and listeners
     function initSocketAsync() {
       return new Promise((resolve, reject) => {
@@ -382,8 +390,9 @@
 
           if (data.status === 'done' && data.download_url) {
             const url = data.download_url;
-            const name = decodeURIComponent(url.split('/').pop());
-            setStatus(data.key, `<a class="dl-link" href="${url}" download="${name}">⬇ Download</a>`);
+            const filename = decodeURIComponent(url.split('/').pop());
+            const { name, ext } = splitFilename(filename);
+            setStatus(data.key, `<a class="dl-link" href="${url}" download="${filename}">⬇ Download</a> ${ext}`);
             toast('Ready');
           } else {
             setStatus(data.key, `Error: ${data.message || 'failed'}`);
@@ -503,6 +512,7 @@
               audio_only: audioOnly.checked ? 1 : 0
             })
           });
+          selectedFormat = null;
 
           if (!res.ok) throw new Error('Queue failed');
 
