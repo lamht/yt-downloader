@@ -52,6 +52,8 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
     name = name[:70]
     ext = ext.lower()
 
+    dst = os.path.join(full_dir, f"{name}{ext}") # default
+
     if ext == ".mp4" and audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
@@ -60,7 +62,7 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
         dst = os.path.join(full_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
-    elif ext in (".opus", ".webm"):
+    elif ext in (".opus"):
         dst = os.path.join(full_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
 
@@ -70,7 +72,11 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        raise RuntimeError(proc.stderr)
+        dst = os.path.join(full_dir, f"{name}{ext}")
+        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg processing failed: {proc.stderr}")     
 
     return dst
 
