@@ -20,24 +20,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
+      # - name: Set up Node.js
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: '20'
 
-      - name: Install minify CLI
-        run: npm install -g minify
+      # - name: Install minify CLI
+      #   run: npm install -g minify
 
-      - name: Minify index.html
-        run: |
-          pwd
-          ls -la app/templates/
-          if [ -f app/templates/index.html ]; then
-            minify app/templates/index.html > app/templates/index.min.html
-            # Optionally overwrite original file
-            mv app/templates/index.min.html app/templates/index.html
-            echo "Minification completed for app/templates/index.html"
-          fi
+      # - name: Minify index.html
+      #   run: |
+      #     pwd
+      #     ls -la app/templates/
+      #     if [ -f app/templates/index.html ]; then
+      #       minify app/templates/index.html > app/templates/index.min.html
+      #       # Optionally overwrite original file
+      #       mv app/templates/index.min.html app/templates/index.html
+      #       echo "Minification completed for app/templates/index.html"
+      #     fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
