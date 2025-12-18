@@ -2,21 +2,22 @@
 <html lang="en">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Downloader</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouTube Downloader - Enhanced</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-
   <style>
     :root {
-      --muted: #9aa4b2;
-      --accent: #ef4444;
-      --success: #10b981;
       --bg: #071022;
       --panel: #071427;
-      --dl-bg: rgba(11, 18, 32, 0.95);
-      --toast-bg: rgba(7, 18, 39, 0.95);
-      --selected-bg: rgba(239, 68, 68, 0.2);
+      --card: rgba(11, 18, 32, 0.95);
+      --toast: rgba(7, 18, 39, 0.95);
+      --accent: #ef4444;
+      --accent-soft: rgba(239, 68, 68, 0.2);
+      --success: #10b981;
+      --muted: #9aa4b2;
+      --text: #e6eef6;
+      --border: rgba(255, 255, 255, 0.08);
     }
 
     * {
@@ -25,77 +26,117 @@
 
     html,
     body {
-      height: 100%;
       margin: 0;
-      font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+      height: 100%;
+      font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
       background: var(--bg);
-      color: #e6eef6;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ================= Container ================= */
     .wrap {
       max-width: 520px;
       margin: 16px auto;
       padding: 16px;
     }
 
-    /* ================= Typography ================= */
-    h1 {
-      font-size: 1.5rem;
-      margin: 0 0 8px;
-    }
-
-    h3 {
-      font-size: 1.1rem;
-      margin: 0 0 8px;
-      word-break: break-word;
-    }
-
-    /* ================= Panels ================= */
     .panel {
       background: var(--panel);
       padding: 16px;
-      border-radius: 14px;
-      margin-bottom: 16px;
+      border-radius: 16px;
     }
 
-    /* ================= Input ================= */
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.5rem;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      word-break: break-word;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
     .input-row {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      margin-bottom: 10px;
     }
 
-    .input-row input[type=text] {
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+    input[type=text] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
       background: transparent;
       color: inherit;
       font-size: 1rem;
+      outline: none;
     }
 
-    .input-row button {
-      padding: 12px;
-      border-radius: 10px;
-      background: var(--accent);
+    input[type=text]:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      padding: 12px 14px;
+      border-radius: 12px;
       border: none;
+      background: var(--accent);
       color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
       cursor: pointer;
-      font-size: 1rem;
-      transition: 0.2s;
+      transition: transform .1s ease, opacity .15s ease;
     }
 
-    .input-row button:hover {
-      opacity: 0.9;
+    button.secondary {
+      background: rgba(255, 255, 255, 0.08);
     }
 
-    /* ================= Formats ================= */
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    button:hover {
+      opacity: .9;
+    }
+
+    button:active {
+      transform: scale(.97);
+    }
+
+    .actions-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .chk {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .9rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #formatsPanel {
+      margin-top: 12px;
+    }
+
     #formatsList {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-top: 8px;
       max-height: 300px;
       overflow-y: auto;
       padding-right: 4px;
@@ -106,7 +147,7 @@
     }
 
     #formatsList::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, .2);
       border-radius: 3px;
     }
 
@@ -115,83 +156,61 @@
       gap: 10px;
       align-items: center;
       padding: 12px;
-      border-radius: 12px;
-      background: var(--dl-bg);
+      border-radius: 14px;
+      background: var(--card);
       border: 2px solid transparent;
       cursor: pointer;
-      transition: 0.15s;
+      transition: .15s ease;
+    }
+
+    .fmt-row input {
+      pointer-events: none;
     }
 
     .fmt-row.selected {
       border-color: var(--accent);
-      background: var(--selected-bg);
+      background: var(--accent-soft);
+    }
+
+    .fmt-row:active {
+      transform: scale(.98);
     }
 
     .fmt-meta {
       flex: 1;
-      font-size: 0.9rem;
+      font-size: .88rem;
+      line-height: 1.35;
       word-break: break-word;
     }
 
-    /* ================= Actions ================= */
-    .sticky-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .sticky-actions label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-
-    .sticky-actions button {
-      background: var(--accent);
-      color: #fff;
-      border-radius: 10px;
-      padding: 10px 14px;
-      border: none;
-      cursor: pointer;
-      font-size: 0.95rem;
-    }
-
-    /* ================= Download List ================= */
     #downloadList {
+      margin-top: 16px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
       min-height: 40px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding-top: 8px;
     }
 
     .dl-row {
-      background: var(--dl-bg);
-      padding: 10px;
-      border-radius: 10px;
-      word-break: break-word;
+      background: var(--card);
+      padding: 10px 12px;
+      border-radius: 12px;
     }
 
     .dl-title {
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: .92rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .dl-status {
-      color: var(--muted);
       margin-top: 4px;
-      font-size: 0.85rem;
+      font-size: .82rem;
+      color: var(--muted);
     }
 
     a.dl-link {
@@ -200,22 +219,19 @@
       text-decoration: none;
     }
 
-    /* ================= Toast ================= */
     .toast {
       position: fixed;
-      right: 16px;
       top: 16px;
-      background: var(--toast-bg);
-      color: #e6eef6;
+      right: 16px;
+      background: var(--toast);
       padding: 10px 14px;
-      border-radius: 10px;
-      z-index: 2000;
-      opacity: 0.95;
-      font-size: 0.9rem;
+      border-radius: 12px;
+      font-size: .9rem;
+      z-index: 9999;
+      opacity: .96;
     }
 
-    /* ================= Tablet ================= */
-    @media (min-width: 640px) {
+    @media(min-width:640px) {
       .wrap {
         max-width: 720px;
       }
@@ -231,10 +247,14 @@
       .input-row input {
         flex: 1;
       }
+
+      .actions-row {
+        flex-direction: row;
+        align-items: center;
+      }
     }
 
-    /* ================= Desktop ================= */
-    @media (min-width: 1024px) {
+    @media(min-width:1024px) {
       .wrap {
         max-width: 960px;
         padding: 24px;
@@ -247,19 +267,17 @@
         align-items: start;
       }
 
-      #formatsList {
-        max-height: 400px;
-      }
-
       #downloadList {
         margin-top: 0;
         border-top: none;
         padding-top: 0;
+        background: rgba(255, 255, 255, .03);
+        padding: 12px;
+        border-radius: 14px;
       }
     }
 
-    /* ================= Large Desktop ================= */
-    @media (min-width: 1280px) {
+    @media(min-width:1280px) {
       .wrap {
         max-width: 1200px;
       }
@@ -272,201 +290,218 @@
 </head>
 
 <body>
+
   <div class="wrap">
     <div class="panel">
       <h1>YouTube Downloader</h1>
 
-      <form id="inspectForm">
-        <div class="input-row">
-          <input type="text" name="url" placeholder="Paste YouTube URL" required />
-          <button type="submit">Inspect</button>
-        </div>
-      </form>
+      <div class="input-row">
+        <input id="url" type="text" placeholder="Paste YouTube URL" aria-label="YouTube URL">
+      </div>
 
-      <div id="formatsPanel" class="panel">
-        <div>
-          <h3 id="videoTitle">Paste URL để xem formats</h3>
-          <div id="formatsList"></div>
+      <div class="actions-row">
+        <button id="downloadBtn">⬇ Download</button>
+        <button id="inspectBtn" class="secondary">Inspect</button>
+        <label class="chk"><input type="checkbox" id="audioOnly"> Audio only</label>
+      </div>
 
-          <div class="sticky-actions">
-            <label>
-              <input type="checkbox" id="audioOnly" /> MP3 only
-            </label>
-            <button id="downloadBtn">⬇ Download Selected</button>
-          </div>
-        </div>
-
+      <div id="formatsPanel">
         <div id="downloadList" aria-live="polite"></div>
+        <div>
+          <h3 id="videoTitle"></h3>
+          <div id="formatsList"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // ==== Script giữ nguyên logic ====
     let socket = null;
-    const downloadsMap = {};
-    const myDownloadKeys = new Set();
-    let currentUrl = null;
+    let downloads = {};
+    let myKeys = new Set();
     let selectedFormat = null;
-    let idleTimeout = null;
-    let title = null;
+    let idleTimer = null;
 
-    function showToast(msg, err = false) {
+    // Show toast notifications
+    function toast(msg, err = false) {
       if (!msg) return;
       const t = document.createElement('div');
       t.className = 'toast';
       t.textContent = msg;
       if (err) t.style.background = '#8b1c1c';
       document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3500);
+      setTimeout(() => t.remove(), 3200);
     }
 
-    function createRow(key, title) {
-      if (downloadsMap[key]) return;
-      const row = document.createElement('div');
-      row.className = 'dl-row';
-      row.id = `dl-${key}`;
-      row.innerHTML =
-        `<div class="dl-title">${title || 'download'}</div>` +
-        `<div id="dl-${key}-status" class="dl-status">Queued</div>`;
-      document.getElementById('downloadList').appendChild(row);
-      downloadsMap[key] = row;
-    }
-
-    function setStatus(key, html) {
-      const el = document.getElementById(`dl-${key}-status`);
-      if (el) el.innerHTML = html;
-    }
-
-    function resetIdleTimer() {
-      if (idleTimeout) clearTimeout(idleTimeout);
-      idleTimeout = setTimeout(() => {
+    // Reset idle timer to auto-disconnect socket
+    function resetIdle() {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
         if (socket) {
           socket.disconnect();
           socket = null;
-          showToast('Disconnected due to inactivity', true);
+          toast('Disconnected (idle)', true);
         }
-      }, 300000);
+      }, 300000); // 5 minutes
     }
 
+    // Initialize Socket.IO connection and listeners
     function initSocket() {
       if (socket) return;
+
       socket = io({ timeout: 5000, reconnectionAttempts: 3 });
-      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => window.addEventListener(evt, resetIdleTimer, true));
-      socket.on('connect', () => resetIdleTimer());
-      socket.on('connect_error', () => showToast('Socket connection failed', true));
-      socket.on('disconnect', () => showToast('Socket disconnected', true));
+
+      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt =>
+        window.addEventListener(evt, resetIdle, true)
+      );
+
+      socket.on('connect', resetIdle);
+      socket.on('connect_error', () => toast('Socket error', true));
+
       socket.on('download_started', data => {
-        if (!data || !data.key) return;
-        myDownloadKeys.add(data.key);
+        if (!data?.key) return;
+        myKeys.add(data.key);
         setStatus(data.key, data.message || 'Queued');
       });
+
       socket.on('download_status', data => {
-        if (!data || !myDownloadKeys.has(data.key)) return;
-        setStatus(data.key, data.message || data.status || '...');
+        if (!data || !myKeys.has(data.key)) return;
+        setStatus(data.key, data.message || 'Processing…');
       });
+
       socket.on('download_complete', data => {
-        if (!data || !myDownloadKeys.has(data.key)) return;
-        if (!downloadsMap[data.key]) createRow(data.key, data.title);
+        if (!data || !myKeys.has(data.key)) return;
+
         if (data.status === 'done' && data.download_url) {
           const url = data.download_url;
-          const fname = decodeURIComponent(url.split('/').pop());
-          setStatus(data.key, `<a class="dl-link" href="${url}" download="${fname}">⬇ Download</a>`);
-          showToast(data.message || 'Ready');
+          const name = decodeURIComponent(url.split('/').pop());
+          setStatus(data.key, `<a class="dl-link" href="${url}" download="${name}">⬇ Download</a>`);
+          toast('Ready');
         } else {
           setStatus(data.key, `Error: ${data.message || 'failed'}`);
-          showToast(data.message || 'Download failed', true);
+          toast(data.message || 'Download failed', true);
         }
-        myDownloadKeys.delete(data.key);
+
+        myKeys.delete(data.key);
       });
     }
 
+    // Create a new row in the download list
+    function createRow(key, title) {
+      if (downloads[key]) return;
+
+      const row = document.createElement('div');
+      row.className = 'dl-row';
+      row.innerHTML = `
+    <div class="dl-title">${title || 'Download'}</div>
+    <div class="dl-status">Queued</div>
+  `;
+      document.getElementById('downloadList').appendChild(row);
+      downloads[key] = row;
+    }
+
+    // Update the status of a download row
+    function setStatus(key, html) {
+      const el = downloads[key]?.querySelector('.dl-status');
+      if (el) el.innerHTML = html;
+    }
+
+    // DOM Ready
     document.addEventListener('DOMContentLoaded', () => {
-      const inspectForm = document.getElementById('inspectForm');
+      const urlInput = document.getElementById('url');
+      const inspectBtn = document.getElementById('inspectBtn');
       const downloadBtn = document.getElementById('downloadBtn');
       const formatsList = document.getElementById('formatsList');
       const audioOnly = document.getElementById('audioOnly');
 
-      inspectForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const url = inspectForm.url.value.trim();
-        if (!url) return showToast('URL required', true);
+      // Clear formats when URL changes
+      urlInput.addEventListener('input', () => {
+        formatsList.innerHTML = '';
+        document.getElementById('videoTitle').textContent = '';
+        selectedFormat = null;
+      });
+
+      // Inspect button click
+      inspectBtn.onclick = async () => {
+        const url = urlInput.value.trim();
+        if (!url) return toast('URL required', true);
+
+        inspectBtn.disabled = true;
+        formatsList.innerHTML = '';
+        selectedFormat = null;
+
         try {
           const res = await fetch('/inspect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
           });
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Inspect failed');
-          }
-          const data = await res.json();
-          currentUrl = url;
-          selectedFormat = null;
-          formatsList.innerHTML = '';
-          if (data.title) {
-            title = data.title;
-            document.getElementById('videoTitle').textContent = data.title;
-          }
-          if (data.formats && data.formats.length > 0) {
-            data.formats.forEach(f => {
-              const row = document.createElement('label');
-              row.className = 'fmt-row';
-              row.innerHTML = `
-                <div style="width:36px"><input type="radio" name="format_id" value="${f.format_id}"></div>
-                <div class="fmt-meta">
-                  <div style="font-weight:700">${f.format_id} <span class="muted">${f.format_note || ''}</span></div>
-                  <div class="muted">${(f.vcodec || 'none') !== "none" ? f.vcodec : 'audio'} / ${(f.acodec || 'none') !== "none" ? f.acodec : 'no audio'}</div>
-                </div>
-              `;
-              const inputEl = row.querySelector('input');
-              inputEl.addEventListener('change', () => {
-                selectedFormat = f.format_id;
-                formatsList.querySelectorAll('.fmt-row').forEach(r => r.classList.remove('selected'));
-                row.classList.add('selected');
-              });
-              formatsList.appendChild(row);
-            });
-          }
-        } catch (err) {
-          console.error(err);
-          showToast(err.message, true);
-        }
-      });
 
-      downloadBtn.addEventListener('click', async e => {
-        if (!currentUrl) return showToast('Paste URL first', true);
-        if (!selectedFormat) return showToast('Select format', true);
+          if (!res.ok) throw new Error('Inspect failed');
+
+          const data = await res.json();
+          document.getElementById('videoTitle').textContent = data.title || '';
+
+          data.formats?.forEach(f => {
+            const row = document.createElement('div');
+            row.className = 'fmt-row';
+            row.innerHTML = `
+          <input type="radio">
+          <div class="fmt-meta">
+            <b>${f.format_id}</b> ${f.format_note || ''}
+            <br>
+            <span class="muted">
+              ${f.vcodec !== 'none' ? f.vcodec : 'audio'} / ${f.acodec !== 'none' ? f.acodec : 'no audio'}
+            </span>
+          </div>
+        `;
+            row.onclick = () => {
+              selectedFormat = f.format_id;
+              formatsList.querySelectorAll('.fmt-row').forEach(r => r.classList.remove('selected'));
+              row.classList.add('selected');
+            };
+            formatsList.appendChild(row);
+          });
+
+        } catch (e) {
+          toast(e.message, true);
+        } finally {
+          inspectBtn.disabled = false;
+        }
+      };
+
+      // Download button click
+      downloadBtn.onclick = async () => {
+        const url = urlInput.value.trim();
+        if (!url) return toast('Paste URL first', true);
+        if (!selectedFormat) selectedFormat = 140;
+
         initSocket();
         downloadBtn.disabled = true;
+
         try {
           const res = await fetch('/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              url: currentUrl,
+              url,
               format_id: selectedFormat,
               audio_only: audioOnly.checked ? 1 : 0
             })
           });
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Queue failed');
-          }
+
+          if (!res.ok) throw new Error('Queue failed');
+
           const data = await res.json();
-          if (data.key) {
-            createRow(data.key, data.title || title);
-            myDownloadKeys.add(data.key);
-          }
-          showToast('Download queued');
-        } catch (err) {
-          console.error(err);
-          showToast(err.message, true);
+          if (data.key) createRow(data.key, data.title);
+          toast('Download queued');
+
+        } catch (e) {
+          toast(e.message, true);
         } finally {
           downloadBtn.disabled = false;
         }
-      });
+      };
     });
   </script>
 </body>

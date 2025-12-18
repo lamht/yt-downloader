@@ -45,7 +45,7 @@ def _set(k, data):
         _downloads[k] = {**_downloads.get(k, {}), **data}
 
 # ---------- File processor ----------
-def process_file(src_path: str, dst_dir: str) -> str:
+def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
     DST_DIR = "/app/download"
     full_dir = os.path.join(DST_DIR, dst_dir)
     os.makedirs(full_dir, exist_ok=True)
@@ -56,17 +56,17 @@ def process_file(src_path: str, dst_dir: str) -> str:
     name = name[:70]
     ext = ext.lower()
 
-    if ext == ".mp4":
+    if ext == ".mp4" and audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
-        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "copy", "-y", dst]
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
 
     elif ext == ".m4a":
         dst = os.path.join(full_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
     elif ext in (".opus", ".webm"):
-        dst = os.path.join(full_dir, f"{name}.mp3")
-        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-q:a", "0", "-y", dst]
+        dst = os.path.join(full_dir, f"{name}.aac")
+        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
 
     else:
         dst = os.path.join(full_dir, f"{name}{ext}")
@@ -123,7 +123,7 @@ def download():
     })
 
     def bg_download():
-        time.sleep(2)  # <-- sửa từ asyncio.sleep(2) thành time.sleep(2)
+        time.sleep(2)
         try:
             _set(key, {"status": "downloading"})
             socketio.emit("download_status", {
