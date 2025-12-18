@@ -346,44 +346,50 @@
     }
 
     // Initialize Socket.IO connection and listeners
-    function initSocket() {
-      if (socket) return;
+    function initSocketAsync() {
+      return new Promise((resolve, reject) => {
+        if (socket && socket.connected) return resolve(socket);
 
-      socket = io({ timeout: 5000, reconnectionAttempts: 3 });
+        socket = io({ timeout: 5000, reconnectionAttempts: 3 });
 
-      ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt =>
-        window.addEventListener(evt, resetIdle, true)
-      );
+        ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt =>
+          window.addEventListener(evt, resetIdle, true)
+        );
 
-      socket.on('connect', resetIdle);
-      socket.on('connect_error', () => toast('Socket error', true));
+        socket.on('connect', () => {
+          resetIdle();
+          resolve(socket); // connect thành công
+        });
 
-      socket.on('download_started', data => {
-        if (!data?.key) return;
-        myKeys.add(data.key);
-        setStatus(data.key, data.message || 'Queued');
-      });
+        socket.on('connect_error', err => reject(new Error('Socket connection failed')));
 
-      socket.on('download_status', data => {
-        if (!data || !myKeys.has(data.key)) return;
-        setStatus(data.key, data.message || 'Processing…');
-        if (data.title) setTitle(data.key, data.title);
-      });
+        socket.on('download_started', data => {
+          if (!data?.key) return;
+          myKeys.add(data.key);
+          setStatus(data.key, data.message || 'Queued');
+        });
 
-      socket.on('download_complete', data => {
-        if (!data || !myKeys.has(data.key)) return;
+        socket.on('download_status', data => {
+          if (!data || !myKeys.has(data.key)) return;
+          setStatus(data.key, data.message || 'Processing…');
+          if (data.title) setTitle(data.key, data.title);
+        });
 
-        if (data.status === 'done' && data.download_url) {
-          const url = data.download_url;
-          const name = decodeURIComponent(url.split('/').pop());
-          setStatus(data.key, `<a class="dl-link" href="${url}" download="${name}">⬇ Download</a>`);
-          toast('Ready');
-        } else {
-          setStatus(data.key, `Error: ${data.message || 'failed'}`);
-          toast(data.message || 'Download failed', true);
-        }
+        socket.on('download_complete', data => {
+          if (!data || !myKeys.has(data.key)) return;
 
-        myKeys.delete(data.key);
+          if (data.status === 'done' && data.download_url) {
+            const url = data.download_url;
+            const name = decodeURIComponent(url.split('/').pop());
+            setStatus(data.key, `<a class="dl-link" href="${url}" download="${name}">⬇ Download</a>`);
+            toast('Ready');
+          } else {
+            setStatus(data.key, `Error: ${data.message || 'failed'}`);
+            toast(data.message || 'Download failed', true);
+          }
+
+          myKeys.delete(data.key);
+        });
       });
     }
 
@@ -482,8 +488,8 @@
         if (!url) return toast('Paste URL first', true);
         if (!selectedFormat && audioOnly.checked) selectedFormat = "140";
 
-        initSocket();
         downloadBtn.disabled = true;
+        await initSocketAsync();
 
         try {
           const res = await fetch('/download', {

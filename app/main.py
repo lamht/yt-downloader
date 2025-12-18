@@ -123,7 +123,6 @@ def download():
     })
 
     def bg_download():
-        time.sleep(2)
         try:
             _set(key, {"status": "downloading"})
             socketio.emit("download_status", {
