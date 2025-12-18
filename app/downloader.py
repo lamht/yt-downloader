@@ -259,14 +259,7 @@ def download_video(
         try_opts_list.append(ydl_opts)
 
     # ---------- Download loop ----------
-    for ydl_opts in try_opts_list:
-        template = ydl_opts.get("outtmpl", "%(title)s.%(format_id)s.%(ext)s")
-        pattern = template.replace("%(title)s", "*").replace("%(format_id)s", "*").replace("%(ext)s", "*")
-        existing_files = glob.glob(pattern)
-        if existing_files:
-            filepath = max(existing_files, key=os.path.getctime)
-            logger.info("File already exists, skipping download: %s", filepath)
-            return {"title": os.path.basename(filepath), "filepath": filepath}
+    for ydl_opts in try_opts_list:      
 
         try:
             logger.info("Trying format: %s", ydl_opts.get("format"))
