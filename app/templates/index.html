@@ -474,7 +474,7 @@
       downloadBtn.onclick = async () => {
         const url = urlInput.value.trim();
         if (!url) return toast('Paste URL first', true);
-        if (!selectedFormat) selectedFormat = 140;
+        if (!selectedFormat) selectedFormat = "140";
 
         initSocket();
         downloadBtn.disabled = true;
