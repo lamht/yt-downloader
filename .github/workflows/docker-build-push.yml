@@ -23,26 +23,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20' # hoặc phiên bản bạn muốn
+          node-version: '20'
 
-      - name: Install html-minifier
-        run: npm install -g html-minifier-terser
+      - name: Install minify CLI
+        run: npm install -g minify
 
       - name: Minify index.html
         run: |
-          pwd 
+          pwd
           ls -la app/templates/
           if [ -f app/templates/index.html ]; then
-            html-minifier-terser \
-              --collapse-whitespace \
-              --remove-comments \
-              --remove-redundant-attributes \
-              --remove-script-type-attributes \
-              --remove-style-link-type-attributes \
-              --minify-css true \
-              --minify-js true \
-              -o app/templates/index.html \
-              app/templates/index.html
+            minify app/templates/index.html > app/templates/index.min.html
+            # Optionally overwrite original file
+            mv app/templates/index.min.html app/templates/index.html
             echo "Minification completed for app/templates/index.html"
           fi
 
