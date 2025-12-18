@@ -367,6 +367,7 @@
       socket.on('download_status', data => {
         if (!data || !myKeys.has(data.key)) return;
         setStatus(data.key, data.message || 'Processing…');
+        if (data.title) setTitle(data.key, data.title);
       });
 
       socket.on('download_complete', data => {
@@ -391,6 +392,7 @@
       if (downloads[key]) return;
 
       const row = document.createElement('div');
+      row.id = `dl-${key}`;
       row.className = 'dl-row';
       row.innerHTML = `
     <div class="dl-title">${title || 'Download'}</div>
@@ -403,6 +405,10 @@
     // Update the status of a download row
     function setStatus(key, html) {
       const el = downloads[key]?.querySelector('.dl-status');
+      if (el) el.innerHTML = html;
+    }
+    function setTitle(key, html) {
+      const el = downloads[key]?.querySelector('.dl-title');
       if (el) el.innerHTML = html;
     }
 

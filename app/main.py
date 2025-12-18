@@ -131,6 +131,7 @@ def download():
                 "status": "downloading",
                 "message": "Downloading..."
             })
+            logger.info("Downloading %s", key)
 
             result = download_video(
                 url,
@@ -144,6 +145,8 @@ def download():
                 "message": "Processing...",
                 "title": result["title"]
             })
+            logger.info("Processing %s", key)
+
 
             final_path = process_file(result["filepath"], "aac")
             file_name = os.path.basename(final_path)
@@ -170,6 +173,7 @@ def download():
                 "status": "error",
                 "message": str(e)
             })
+            logger.info("Error %s", key)
 
     socketio.start_background_task(bg_download)
 
