@@ -141,7 +141,7 @@ def download():
             socketio.emit("download_status", {
                 "key": key,
                 "status": "processing",
-                "message": "Processing..."
+                "message": "Processing...",
                 "title": result["title"]
             })
 
