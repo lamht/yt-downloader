@@ -90,6 +90,12 @@ def _enable_deno() -> bool:
 def my_hook(d):
     logger.info("Progress: %s", d)
 
+class ErrorOnlyLogger:
+    def debug(self, msg): pass
+    def info(self, msg): pass
+    def warning(self, msg): pass
+    def error(self, msg): logger.info("yt-dlp error: %s", msg)
+
 
 def _base_ydl_opts(extra: dict | None = None):
     """
@@ -99,7 +105,7 @@ def _base_ydl_opts(extra: dict | None = None):
     opts = {
         "quiet": True,
         "progress_hooks": [my_hook],
-        "logger": logger,
+        "logger": ErrorOnlyLogger(),
         "no_warnings": False,
         "retries": 3,
         "fragment_retries": 3,
