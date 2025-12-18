@@ -117,12 +117,60 @@
     .chk {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: .9rem;
-      color: var(--muted);
       cursor: pointer;
       user-select: none;
+      position: relative;
+      font-size: 1rem;
+      gap: 10px;
     }
+
+    /* Ẩn checkbox mặc định */
+    .chk input[type="checkbox"] {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    /* Custom box */
+    .chk::before {
+      content: '';
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--muted);
+      border-radius: 6px;
+      background: transparent;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    /* Khi checked */
+    .chk input[type="checkbox"]:checked+span::before {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Checkmark */
+    .chk span::after {
+      content: '';
+      position: absolute;
+      width: 6px;
+      height: 12px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      opacity: 0;
+      transition: all 0.2s ease;
+      left: 6px;
+      top: 3px;
+    }
+
+    .chk input[type="checkbox"]:checked+span::after {
+      opacity: 1;
+    }
+
+    /* ======================= */
 
     #formatsPanel {
       margin-top: 12px;
@@ -304,7 +352,10 @@
       <div class="actions-row">
         <button id="downloadBtn">⬇ Download</button>
         <button id="inspectBtn" class="secondary">Inspect</button>
-        <label class="chk"><input type="checkbox" id="audioOnly"> Audio only</label>
+        <label class="chk">
+          <input type="checkbox" id="audioOnly">
+          <span>Audio only</span>
+        </label>
       </div>
 
       <div id="formatsPanel">
@@ -348,12 +399,12 @@
     }
 
     function splitFilename(filename) {
-        const lastDot = filename.lastIndexOf('.');
-        if (lastDot === -1) return { name: filename, ext: '' }; // không có ext
-        const name = filename.substring(0, lastDot);
-        const ext = filename.substring(lastDot + 1);
-        return { name, ext };
-      }
+      const lastDot = filename.lastIndexOf('.');
+      if (lastDot === -1) return { name: filename, ext: '' }; // không có ext
+      const name = filename.substring(0, lastDot);
+      const ext = filename.substring(lastDot + 1);
+      return { name, ext };
+    }
 
     // Initialize Socket.IO connection and listeners
     function initSocketAsync() {
