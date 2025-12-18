@@ -178,11 +178,15 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
   .toast { font-size:1rem; padding:14px 20px; }
 }
 
-@media(min-width:768px){
-  #formatsPanel { flex-direction:row; gap:24px; }
-  #downloadList { width:60%; }
-  #formatsListPanel { width:50%; }
-  #formatsList .fmt-row { width:100%; }
+@media(min-width:1024px){
+  #formatsPanel { 
+    display: flex;
+    flex-direction: row; 
+    gap: 24px; 
+  }
+  #downloadList { flex: 3; }       /* 3 phần */
+  #formatsListPanel { flex: 2; }   /* 2 phần, tổng 5 phần = 100% */
+  #formatsList .fmt-row { width: 100%; }
 }
 
 @media(min-width:1024px){
@@ -241,7 +245,7 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
                 Download</a> aac</div>
           </div>
         </div>
-        <divid="formatsListPanel">
+        <div id="formatsListPanel">
           <h3 id="videoTitle"></h3>
           <div id="formatsList">
             <div class="fmt-row"> <!--dont remove for testing css -->
