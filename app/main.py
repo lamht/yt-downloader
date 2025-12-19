@@ -211,8 +211,17 @@ def health():
     })
 
 
-# ---------- Local dev only ----------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    logger.info("DEV server on port %s", port)
-    socketio.run(app, host="0.0.0.0", port=port)
+    env = os.environ.get("ENV", "production").lower()
+
+    if env == "local":
+        # Local development only
+        logger.info("LOCAL dev server on port %s", port)
+        import eventlet
+        eventlet.monkey_patch()
+        socketio.run(app, host="0.0.0.0", port=port)
+    else:
+        # Production-like (no monkey patch, gunicorn will be used)
+        logger.info("PROD server (fallback) on port %s", port)
+        socketio.run(app, host="0.0.0.0", port=port)
