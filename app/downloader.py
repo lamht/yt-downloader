@@ -2,7 +2,7 @@ import os
 import shutil
 import tempfile
 import glob
-from log_config import setup_logger
+from app.log_config import setup_logger
 import functools
 
 import yt_dlp

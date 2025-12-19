@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from flask import Flask, request, jsonify, send_from_directory, Response, make_response
 from flask_socketio import SocketIO
-from log_config import setup_logger
+from app.log_config import setup_logger
 
 # ---------- App setup ----------
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -94,7 +94,7 @@ def inspect():
         return jsonify({"error": "URL is required"}), 400
 
     # Lazy import
-    from downloader import get_video_info
+    from app.downloader import get_video_info
     info = get_video_info(url)
 
     return jsonify({
@@ -121,7 +121,7 @@ def download():
 
     def bg_download():
         try:
-            from downloader import download_video
+            from app.downloader import download_video
 
             _set(key, {"status": "downloading"})
             socketio.emit("download_status", {
