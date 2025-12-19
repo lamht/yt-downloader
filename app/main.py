@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 import os
 import time
 import uuid
@@ -13,18 +10,18 @@ from flask import Flask, request, jsonify, send_from_directory, Response, make_r
 from flask_socketio import SocketIO
 from log_config import setup_logger
 
-# ---------- Setup ----------
+# ---------- App setup ----------
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("FLASK_SECRET", "change-me")
 
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode="eventlet"
+    async_mode="eventlet",   # Gunicorn will handle eventlet
 )
 
 logger = setup_logger("main")
-logger.info("Logger for main initialized")
+logger.info("Logger initialized")
 
 # ---------- Download tracking ----------
 _downloads = {}
@@ -52,7 +49,7 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
     name = name[:70]
     ext = ext.lower()
 
-    dst = os.path.join(full_dir, f"{name}{ext}") # default
+    dst = os.path.join(full_dir, f"{name}{ext}")
 
     if ext == ".mp4" and audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
@@ -62,21 +59,16 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
         dst = os.path.join(full_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
-    elif ext in (".opus"):
+    elif ext == ".opus":
         dst = os.path.join(full_dir, f"{name}.aac")
         cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
 
     else:
-        dst = os.path.join(full_dir, f"{name}{ext}")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        dst = os.path.join(full_dir, f"{name}{ext}")
-        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0:
-            raise RuntimeError(f"FFmpeg processing failed: {proc.stderr}")     
+        raise RuntimeError(f"FFmpeg failed: {proc.stderr}")
 
     return dst
 
@@ -85,9 +77,11 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
 @app.route("/")
 def index():
     response = make_response(send_from_directory("templates", "index.html"))
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
+    response.headers.update({
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    })
     return response
 
 
@@ -114,7 +108,7 @@ def download():
     data = request.json or request.form
 
     url = data.get("url")
-    format_id = data.get("format_id") or None
+    format_id = data.get("format_id")
     audio_only = str(data.get("audio_only", "0")) == "1"
 
     if not url:
@@ -127,38 +121,52 @@ def download():
 
     def bg_download():
         try:
-            # Lazy import inside background
             from downloader import download_video
 
             _set(key, {"status": "downloading"})
-            socketio.emit("download_status", {"key": key, "status": "downloading", "message": "Downloading..."})
-            logger.info("Downloading %s", key)
+            socketio.emit("download_status", {
+                "key": key,
+                "status": "downloading",
+                "message": "Downloading..."
+            })
 
-            result = download_video(url, format_id=format_id, audio_only=audio_only, key=key, socket=socketio)
+            result = download_video(
+                url,
+                format_id=format_id,
+                audio_only=audio_only,
+                key=key,
+                socket=socketio
+            )
 
-            socketio.emit("download_status", {"key": key, "status": "processing", "message": "Processing...", "title": result["title"]})
-            logger.info("Processing %s", key)
+            socketio.emit("download_status", {
+                "key": key,
+                "status": "processing",
+                "message": "Processing...",
+                "title": result.get("title")
+            })
 
-            final_path = process_file(result["filepath"], "aac", audio_only=audio_only)
+            final_path = process_file(result["filepath"], "aac", audio_only)
             file_name = os.path.basename(final_path)
-            file_name_safe = quote(file_name)
+            safe_name = quote(file_name)
 
             _set(key, {"status": "done", "filepath": final_path})
 
             socketio.emit("download_complete", {
                 "key": key,
                 "status": "done",
-                "title": result["title"],
-                "download_url": f"/download/aac/{file_name_safe}"
+                "title": result.get("title"),
+                "download_url": f"/download/aac/{safe_name}"
             })
 
         except Exception as e:
             logger.error(traceback.format_exc())
             _set(key, {"status": "error", "error": str(e)})
-            socketio.emit("download_complete", {"key": key, "status": "error", "message": str(e)})
-            logger.info("Error %s", key)
+            socketio.emit("download_complete", {
+                "key": key,
+                "status": "error",
+                "message": str(e)
+            })
 
-    # Start background task
     socketio.start_background_task(bg_download)
 
     return jsonify({"key": key, "status": "queued"})
@@ -184,20 +192,27 @@ def download_aac(filename):
 
     def generate():
         with open(path, "rb") as f:
-            while chunk := f.read(8192):
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
                 yield chunk
 
     return Response(generate(), headers=headers)
 
 
 # ---------- Health check ----------
-@app.route("/health", methods=["GET"])
+@app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "yt-downloader", "timestamp": int(time.time())}), 200
+    return jsonify({
+        "status": "ok",
+        "service": "yt-downloader",
+        "timestamp": int(time.time())
+    })
 
 
-# ---------- Run ----------
+# ---------- Local dev only ----------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    logger.info("Server listening on port %s", port)
+    logger.info("DEV server on port %s", port)
     socketio.run(app, host="0.0.0.0", port=port)
