@@ -2,30 +2,29 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# ---------- Python runtime optimizations ----------
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ENV=production \
+    PORT=5000
+
 # ---------- System dependencies ----------
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
     curl \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
-# ---------- Install Deno (JS runtime for yt-dlp) ----------
-# RUN curl -fsSL https://deno.land/install.sh | sh
-# ENV PATH="/root/.deno/bin:$PATH"
-# ENV ENABLE_DENO=1
 # ---------- Python dependencies ----------
 COPY requirements.txt .
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+ && pip install --no-cache-dir -r requirements.txt
 
 # ---------- App source ----------
 COPY . .
 
-# ---------- Environment ----------
-ENV PYTHONUNBUFFERED=1
-
 EXPOSE 5000
 
-# ---------- Run app ----------
-CMD ["python", "-u", "app/main.py"]
+# ---------- Run app (Gunicorn + eventlet, dynamic PORT) ----------
+CMD ["sh", "-c", "gunicorn app.main:app -k eventlet -w 1 --bind 0.0.0.0:${PORT:-5000} --log-level warning"]
