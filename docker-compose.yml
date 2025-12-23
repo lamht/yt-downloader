@@ -14,12 +14,12 @@ services:
     environment:
       FLASK_ENV: production
       PORT: 5000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 4s
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+    #   interval: 30s
+    #   timeout: 3s
+    #   retries: 3
+    #   start_period: 3s
     networks:
       - backend
 
@@ -27,9 +27,9 @@ services:
     image: thanhlam00290/forwarder:latest
     container_name: forwarder
     restart: unless-stopped
-    depends_on:
-      ytdownloader:
-        condition: service_healthy
+    # depends_on:
+    #   ytdownloader:
+    #     condition: service_healthy
     environment:
       URL_FORWARD: "http://ytdownloader:5000"
       FIREBASE_DB_URL: "https://xxx.firebaseio.com"
