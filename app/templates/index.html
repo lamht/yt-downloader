@@ -167,8 +167,22 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
 .fmt-row:hover { background: var(--accent-soft); }
 .fmt-row.selected { background: var(--accent); color: #fff; }
 
-.dl-row { display:flex; justify-content: space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+.dl-row { display:flex; flex-direction: column; justify-content: space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+.dl-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #e5e7eb;
 
+  /* chống vỡ layout */
+  word-break: break-word;
+}
+
+.dl-status {
+  font-size: 12px;
+  color: #9ca3af;
+  word-break: break-word;
+}
 /* Responsive */
 @media(min-width:640px){
   .wrap { max-width:720px; }
