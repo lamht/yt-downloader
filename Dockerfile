@@ -27,4 +27,4 @@ COPY . .
 EXPOSE 5000
 
 # ---------- Run app (Gunicorn + eventlet, dynamic PORT) ----------
-CMD ["sh", "-c", "gunicorn app.main:app -k eventlet -w 1 --bind 0.0.0.0:${PORT:-5000} --log-level warning"]
+CMD ["sh", "-c", "gunicorn app.main:app -k eventlet -w 1 --bind 0.0.0.0:${PORT:-5000} --timeout 0 --log-level warning"]
