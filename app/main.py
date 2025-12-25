@@ -5,6 +5,7 @@ import traceback
 import subprocess
 from urllib.parse import quote
 import eventlet
+from eventlet import tpool
 
 from flask import Flask, request, jsonify, send_from_directory, Response, make_response
 from flask_socketio import SocketIO
@@ -29,6 +30,9 @@ def _new_key():
 
 
 # ---------- File processor ----------
+def _run_ffmpeg(cmd):
+    return subprocess.run(cmd, capture_output=True, text=True)
+
 def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, title: str):
     DST_DIR = "/app/download"
     full_dir = os.path.join(DST_DIR, dst_dir)
@@ -58,7 +62,7 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, title:
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
     
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = tpool.execute(_run_ffmpeg, cmd)
     if proc.returncode != 0:
         raise RuntimeError(f"FFmpeg failed: {proc.stderr}")
 
