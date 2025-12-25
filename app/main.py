@@ -3,8 +3,8 @@ import time
 import uuid
 import traceback
 import subprocess
-from threading import Lock
 from urllib.parse import quote
+import eventlet
 
 from flask import Flask, request, jsonify, send_from_directory, Response, make_response
 from flask_socketio import SocketIO
@@ -23,22 +23,13 @@ socketio = SocketIO(
 logger = setup_logger("main")
 logger.info("Logger initialized")
 
-# ---------- Download tracking ----------
-_downloads = {}
-_lock = Lock()
-
 
 def _new_key():
     return uuid.uuid4().hex
 
 
-def _set(k, data):
-    with _lock:
-        _downloads[k] = {**_downloads.get(k, {}), **data}
-
-
 # ---------- File processor ----------
-def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
+def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, title: str):
     DST_DIR = "/app/download"
     full_dir = os.path.join(DST_DIR, dst_dir)
     os.makedirs(full_dir, exist_ok=True)
@@ -66,11 +57,21 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool = False) -> str:
     else:
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
+    
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(f"FFmpeg failed: {proc.stderr}")
 
-    return dst
+    final_path = dst
+    file_name = os.path.basename(final_path)
+    safe_name = quote(file_name)
+
+    socketio.emit("download_complete", {
+            "key": key,
+            "status": "done",
+            "title": title,
+            "download_url": f"/download/aac/{safe_name}"
+        })
 
 
 # ---------- Routes ----------
@@ -115,7 +116,6 @@ def download():
         return jsonify({"error": "URL is required"}), 400
 
     key = _new_key()
-    _set(key, {"status": "queued"})
 
     socketio.emit("download_started", {"key": key, "status": "queued"})
 
@@ -123,13 +123,13 @@ def download():
         try:
             from app.downloader import download_video
 
-            _set(key, {"status": "downloading"})
             socketio.emit("download_status", {
                 "key": key,
                 "status": "downloading",
                 "message": "Downloading..."
             })
 
+            eventlet.sleep(0.1)
             result = download_video(
                 url,
                 format_id=format_id,
@@ -145,22 +145,11 @@ def download():
                 "title": result.get("title")
             })
 
-            final_path = process_file(result["filepath"], "aac", audio_only)
-            file_name = os.path.basename(final_path)
-            safe_name = quote(file_name)
-
-            _set(key, {"status": "done", "filepath": final_path})
-
-            socketio.emit("download_complete", {
-                "key": key,
-                "status": "done",
-                "title": result.get("title"),
-                "download_url": f"/download/aac/{safe_name}"
-            })
+            eventlet.sleep(0.1)
+            socketio.start_background_task(process_file, result["filepath"], "aac", audio_only, key, result.get("title"))        
 
         except Exception as e:
             logger.error(traceback.format_exc())
-            _set(key, {"status": "error", "error": str(e)})
             socketio.emit("download_complete", {
                 "key": key,
                 "status": "error",
