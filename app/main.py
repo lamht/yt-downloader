@@ -46,36 +46,36 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, title:
 
     dst = os.path.join(full_dir, f"{name}{ext}")
 
-    if ext == ".mp4" and audio_only:
+    if audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
-        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
-
-    elif ext == ".m4a":
-        dst = os.path.join(full_dir, f"{name}.aac")
-        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
-
-    elif ext == ".opus":
-        dst = os.path.join(full_dir, f"{name}.aac")
-        cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
-
+        if ext == ".m4a":
+            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+        elif ext == ".aac":
+            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+        else:
+            cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
     else:
+        dst = os.path.join(full_dir, f"{name}.mp4")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
-
+    logger.info("Running FFmpeg command: %s", " ".join(cmd))
     
     proc = tpool.execute(_run_ffmpeg, cmd)
     if proc.returncode != 0:
+        logger.error("FFmpeg error: %s", proc.stderr)
         raise RuntimeError(f"FFmpeg failed: {proc.stderr}")
 
     final_path = dst
     file_name = os.path.basename(final_path)
     safe_name = quote(file_name)
 
+    logger.info("File processed: %s", final_path)
     socketio.emit("download_complete", {
             "key": key,
             "status": "done",
             "title": title,
             "download_url": f"/download/aac/{safe_name}"
         })
+    logger.info("Download URL emitted for key %s", key)
 
 
 # ---------- Routes ----------
