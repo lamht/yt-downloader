@@ -53,8 +53,8 @@ def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, title:
         elif ext == ".aac":
             cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
         else:
-            cmd = ["ffmpeg", "-i", src_path, "-map", "a", "-c:a", "aac", "-b:a", "192k", "-y", dst]
-    else:
+            cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-map", "0:a:0", "-c:a", "aac", "-b:a", "192k", dst]
+    else: #video
         dst = os.path.join(full_dir, f"{name}.mp4")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
     logger.info("Running FFmpeg command: %s", " ".join(cmd))
