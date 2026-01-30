@@ -285,6 +285,7 @@ def download_video(
         try_opts_list.append(ydl_opts)
 
     # ---------- Download loop ----------
+    last_exception = None
     for ydl_opts in try_opts_list:
         try:
             logger.info("Trying format: %s", ydl_opts.get("format"))
@@ -307,6 +308,11 @@ def download_video(
 
         except (DownloadError, ExtractorError, Exception) as e:
             logger.warning("Attempt failed: %s", e)
+            last_exception = e
             continue
+
+    # Re-raise the last exception so callers can see the original error
+    if last_exception:
+        raise RuntimeError(f"Failed to download after all retries: {last_exception}")
 
     raise RuntimeError("Failed to download after all retries")
