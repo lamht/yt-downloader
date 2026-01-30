@@ -122,8 +122,10 @@ def download():
     key = _new_key()
 
     socketio.emit("download_started", {"key": key, "status": "queued"})
+    logger.info("Scheduled download job for key %s", key)
 
     def bg_download():
+        logger.info("bg_download started for key %s", key)
         try:
             from app.downloader import download_video
 
@@ -132,6 +134,7 @@ def download():
                 "status": "downloading",
                 "message": "Downloading..."
             })
+            logger.info("Calling download_video for key %s", key)
 
             result = download_video(
                 url,
@@ -140,6 +143,7 @@ def download():
                 key=key,
                 socket=socketio
             )
+            logger.info("download_video finished for key %s, filepath=%s", key, result.get("filepath"))
 
             socketio.emit("download_status", {
                 "key": key,
@@ -147,7 +151,9 @@ def download():
                 "message": "Processing...",
                 "title": result.get("title")
             })
-            socketio.start_background_task(process_file, result["filepath"], "aac", audio_only, key, result.get("title"))        
+            logger.info("Scheduling process_file for key %s", key)
+            task = socketio.start_background_task(process_file, result["filepath"], "aac", audio_only, key, result.get("title"))
+            logger.info("process_file scheduled for key %s, task=%s", key, task)
 
         except Exception as e:
             logger.error(traceback.format_exc())
@@ -157,7 +163,8 @@ def download():
                 "message": str(e)
             })
 
-    socketio.start_background_task(bg_download)
+    task = socketio.start_background_task(bg_download)
+    logger.info("bg_download scheduled for key %s, task=%s", key, task)
 
     return jsonify({"key": key, "status": "queued"})
 
