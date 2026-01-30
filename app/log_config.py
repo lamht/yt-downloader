@@ -17,7 +17,8 @@ def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
 
     if not logger.hasHandlers():
         ch = FlushStreamHandler(sys.stdout)
-        formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
+        # Include timestamp with millisecond precision for easier debugging
+        formatter = logging.Formatter('[%(asctime)s.%(msecs)03d] [%(name)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 

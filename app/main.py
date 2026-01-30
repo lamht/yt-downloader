@@ -133,7 +133,6 @@ def download():
                 "message": "Downloading..."
             })
 
-            eventlet.sleep(0.1)
             result = download_video(
                 url,
                 format_id=format_id,
@@ -148,8 +147,6 @@ def download():
                 "message": "Processing...",
                 "title": result.get("title")
             })
-
-            eventlet.sleep(0.1)
             socketio.start_background_task(process_file, result["filepath"], "aac", audio_only, key, result.get("title"))        
 
         except Exception as e:
