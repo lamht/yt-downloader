@@ -246,18 +246,19 @@ def download_video(
 
     # ---------- Build format options ----------
     if audio_only:
+        # Prefer highest-quality audio first, then fallbacks (m4a, opus).
         formats_to_try = [
-            {"format": "140"},  # m4a
             {
-                "format": "251",
+                "format": "bestaudio/best",
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "aac",
                     "preferredquality": "192",
                 }]
             },
+            {"format": "140"},  # m4a
             {
-                "format": "bestaudio/best",
+                "format": "251", # opus
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "aac",
