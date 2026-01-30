@@ -249,29 +249,20 @@ def download_video(
         # Prefer highest-quality audio first, then fallbacks (m4a, opus).
         formats_to_try = [
             {
-                "format": "bestaudio/best",
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "aac",
-                    "preferredquality": "192",
-                }]
+                "format": "251", # opus                
+            },
+            {
+                "format": "bestaudio/best"
             },
             {"format": "140"},  # m4a
-            {
-                "format": "251", # opus
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "aac",
-                    "preferredquality": "192",
-                }]
-            },
+            
         ]
     elif format_id:
         formats_to_try = [{"format": format_id}]
     else:
         formats_to_try = [
             {"format": "bestvideo+bestaudio/best", "merge_output_format": "mp4"},
-            {"format": "best"},
+            {"format": "best", "merge_output_format": "mp4"},
         ]
 
     # ---------- Prepare yt-dlp options ----------
