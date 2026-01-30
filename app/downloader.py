@@ -248,13 +248,13 @@ def download_video(
     if audio_only:
         # Prefer highest-quality audio first, then fallbacks (m4a, opus).
         formats_to_try = [
+            {"format": "140"},  # m4a
             {
                 "format": "251", # opus                
             },
             {
                 "format": "bestaudio/best"
             },
-            {"format": "140"},  # m4a
             
         ]
     elif format_id:
