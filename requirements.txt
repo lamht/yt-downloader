@@ -1,10 +1,6 @@
-Flask==3.1.2
-Flask-SocketIO==5.5.1
-
-python-socketio==5.15.0
-python-engineio==4.11.2
-
-eventlet==0.35.2
-gunicorn==21.2.0
-
-yt-dlp>=2025.12.08
+fastapi==0.115.0          # Web framework
+uvicorn[standard]==0.32.1 # ASGI server
+aiofiles==23.2.1          # Async file I/O
+janus==1.0.0              # Async/thread queue bridge
+aiohttp==3.10.1           # Async HTTP (for yt-dlp)
+yt-dlp>=2025.12.08        # YouTube downloader

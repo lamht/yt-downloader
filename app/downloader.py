@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import glob
+import janus
 from app.log_config import setup_logger
 import functools
 
@@ -85,10 +86,20 @@ def _enable_deno() -> bool:
 
 
 # ---------- yt-dlp utils ----------
-# Global dict để lưu percent trước đó
+# Global dict to save last percent
 _last_percent = {}
+# Janus queue - thread-safe sync side in hook, async side in monitor
+# Initialized in app.lifespan when event loop is available
+_update_queue = None
 
-def my_hook(d, key=None, socket=None):
+def get_update_queue():
+    """Get the global janus queue (initialized at app startup)"""
+    if _update_queue is None:
+        raise RuntimeError("Update queue not initialized. App startup may have failed.")
+    return _update_queue
+
+def my_hook(d, key=None, update_queue=None):
+    """yt-dlp progress hook - called from executor thread"""
     try:
         status = d.get("status")
         filename = d.get("filename", "unknown")
@@ -107,27 +118,35 @@ def my_hook(d, key=None, socket=None):
             msg = f"Downloading {filename}: {percent_rounded}%"
             logger.info(msg)
 
-            if socket and key is not None:
-                socket.emit("download_status", {
-                    "key": key,
-                    "status": "downloading",
-                    "message": msg,
-                    "percent": percent_rounded
-                })
+            # Send update via thread-safe queue (janus sync side)
+            if update_queue and key is not None:
+                try:
+                    update_queue.sync_q.put_nowait({
+                        "key": key,
+                        "status": "downloading",
+                        "message": msg,
+                        "percent": percent_rounded
+                    })
+                except Exception as e:
+                    logger.warning("Failed to put update in queue: %s", e)
 
         elif status == "finished":
             msg = f"Finished downloading {filename}"
             percent_rounded = 100
             logger.info(msg)
             _last_percent.pop(key, None)
-
-            if socket and key is not None:
-                socket.emit("download_status", {
-                    "key": key,
-                    "status": "done",
-                    "message": msg,
-                    "percent": percent_rounded
-                })
+            
+            # Send finished update via queue (janus sync side)
+            if update_queue and key is not None:
+                try:
+                    update_queue.sync_q.put_nowait({
+                        "key": key,
+                        "status": "done",
+                        "message": msg,
+                        "percent": percent_rounded
+                    })
+                except Exception as e:
+                    logger.warning("Failed to put update in queue: %s", e)
 
     except Exception as e:
         logger.warning("my_hook error: %s", e)
@@ -226,12 +245,13 @@ def download_video(
     out_dir: str = "downloads",
     format_id: str | None = None,
     audio_only: bool = False,
-    key: str | None = None,
-    socket=None
+    key: str | None = None
 ):
     """
     Download video or audio using yt-dlp.
     Always download fresh, no check file exist.
+    Runs in executor thread, so blocking I/O is fine.
+    Returns updates via internal queue to be picked up by async code.
     """
 
     import functools
@@ -280,7 +300,15 @@ def download_video(
     for ydl_opts in try_opts_list:
         try:
             logger.info("Trying format: %s", ydl_opts.get("format"))
-            ydl_opts["progress_hooks"] = [functools.partial(my_hook, key=key, socket=socket)]
+            # Get sync_q for thread-safe access from executor
+            # Queue initialized once at app startup, never recreated
+            if _update_queue is None:
+                logger.warning("Update queue not initialized - app startup may have failed")
+                sync_queue = None
+            else:
+                sync_queue = _update_queue.sync_q
+            
+            ydl_opts["progress_hooks"] = [functools.partial(my_hook, key=key, update_queue=sync_queue)]
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
