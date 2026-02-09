@@ -377,7 +377,7 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
             const url = data.download_url;
             const filename = decodeURIComponent(url.split('/').pop());
             const { name, ext } = splitFilename(filename);
-            setStatus(data.key, `<a class="dl-link" href="${url}" download="${filename}">⬇ Download</a> ${ext}`);
+            setStatus(data.key, `<a class="dl-link" href="${url}" download="${filename}" target="_blank">⬇ Download</a> ${ext}`);
             toast('Ready');
           } else {
             setStatus(data.key, `Error: ${data.message || 'failed'}`);
