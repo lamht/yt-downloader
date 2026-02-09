@@ -40,4 +40,3 @@ EXPOSE 5000
 
 # ---------- Run app (Uvicorn + asyncio) ----------
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --log-level warning"]
-
