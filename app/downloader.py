@@ -121,7 +121,7 @@ def my_hook(d, key=None, update_queue=None):
             # Send update via thread-safe queue (janus sync side)
             if update_queue and key is not None:
                 try:
-                    update_queue.sync_q.put_nowait({
+                    update_queue.put_nowait({
                         "key": key,
                         "status": "downloading",
                         "message": msg,
@@ -139,7 +139,7 @@ def my_hook(d, key=None, update_queue=None):
             # Send finished update via queue (janus sync side)
             if update_queue and key is not None:
                 try:
-                    update_queue.sync_q.put_nowait({
+                    update_queue.put_nowait({
                         "key": key,
                         "status": "done",
                         "message": msg,
