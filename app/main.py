@@ -170,6 +170,7 @@ async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, 
             cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
         else:
             audio_codec = await _probe_audio_codec(src_path)
+            logger.info("Probed audio codec for %s: %s", src_path, audio_codec)
             if audio_codec in {"aac", "mp4a"}:
                 cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-map", "0:a:0", "-c:a", "copy", dst]
             else:
