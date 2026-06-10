@@ -195,6 +195,19 @@ def _base_ydl_opts(extra: dict | None = None):
     else:
         logger.info("yt-dlp cookie disabled")
 
+    # ---------- File write behavior ----------
+    # Some mounted filesystems (CIFS, SMB, FUSE, etc.) may not support
+    # certain low-level file operations used by yt-dlp when writing
+    # temporary ".part" files. To avoid "Operation not supported" errors
+    # on such filesystems, disable use of .part temporary files by default.
+    # Set env `YTDLP_ALLOW_PARTS=1` to opt back into using .part files.
+    allow_parts = os.environ.get("YTDLP_ALLOW_PARTS", "0").lower() in ("1", "true", "yes", "on")
+    if not allow_parts:
+        opts["nopart"] = True
+        logger.info("yt-dlp .part usage disabled (YTDLP_ALLOW_PARTS not set)")
+    else:
+        logger.info("yt-dlp .part usage enabled via YTDLP_ALLOW_PARTS")
+
     if extra:
         opts.update(extra)
 
@@ -266,8 +279,13 @@ def download_video(
 
     # ---------- Build format options ----------
     if audio_only:
-        # Prefer highest-quality audio first, then fallbacks (m4a, opus).
-        formats_to_try = [
+        # Prefer a requested audio format first when specified, otherwise
+        # fall back to common high-quality audio formats.
+        formats_to_try = []
+        if format_id:
+            formats_to_try.append({"format": format_id})
+
+        formats_to_try.extend([
             {"format": "140"},  # m4a
             {
                 "format": "251", # opus                
@@ -275,8 +293,7 @@ def download_video(
             {
                 "format": "bestaudio/best"
             },
-            
-        ]
+        ])
     elif format_id:
         formats_to_try = [{"format": format_id}]
     else:
