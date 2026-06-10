@@ -3,6 +3,7 @@ import time
 import uuid
 import traceback
 import asyncio
+import shutil
 from urllib.parse import quote
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -47,10 +48,23 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # ---------- App setup ----------
+def _ensure_ffmpeg_tools():
+    """Ensure `ffmpeg` and `ffprobe` are available on startup."""
+    missing = [tool for tool in ("ffmpeg", "ffprobe") if shutil.which(tool) is None]
+    if missing:
+        raise RuntimeError(
+            f"Missing required system tools: {', '.join(missing)}. "
+            "Install ffmpeg / ffprobe before starting the app."
+        )
+    logger.info("ffmpeg and ffprobe are present")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """App lifecycle: startup and shutdown"""
     logger.info("Application startup")
+
+    _ensure_ffmpeg_tools()
     
     # Initialize janus queue (async/thread bridge)
     import janus
@@ -115,6 +129,29 @@ async def _run_ffmpeg(cmd):
     }
 
 
+async def _probe_audio_codec(src_path: str) -> str | None:
+    """Probe the first audio stream codec with ffprobe."""
+    process = await asyncio.create_subprocess_exec(
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=codec_name",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        src_path,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        logger.warning("ffprobe failed for %s: %s", src_path, stderr.decode().strip())
+        return None
+    return stdout.decode().strip().lower() or None
+
+
 async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, title: str):
     """Process downloaded file with FFmpeg"""
     DST_DIR = "/app/download"
@@ -129,12 +166,14 @@ async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, 
 
     if audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
-        if ext == ".m4a":
-            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
-        elif ext == ".aac":
+        if ext == ".m4a" or ext == ".aac":
             cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
         else:
-            cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-map", "0:a:0", "-c:a", "aac", "-b:a", "192k", dst]
+            audio_codec = await _probe_audio_codec(src_path)
+            if audio_codec in {"aac", "mp4a"}:
+                cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-map", "0:a:0", "-c:a", "copy", dst]
+            else:
+                cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-map", "0:a:0", "-c:a", "aac", "-b:a", "192k", dst]
     else:  # video
         dst = os.path.join(full_dir, f"{name}.mp4")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
