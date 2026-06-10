@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import glob
 import janus
+import unicodedata
 from app.log_config import setup_logger
 import functools
 
@@ -208,10 +209,35 @@ def _base_ydl_opts(extra: dict | None = None):
     else:
         logger.info("yt-dlp .part usage enabled via YTDLP_ALLOW_PARTS")
 
+    # ---------- Filename sanitization ----------
+    # Some filesystems and containers disallow exotic characters in
+    # filenames. Use a safer filename policy by default.
+    sanitize_names = os.environ.get("YTDLP_SANITIZE_FILENAMES", "1").lower() in ("1", "true", "yes", "on")
+    if sanitize_names:
+        opts["restrictfilenames"] = True
+        opts["windowsfilenames"] = True
+        logger.info("yt-dlp filename sanitization enabled (restrictfilenames/windowsfilenames)")
+    else:
+        logger.info("yt-dlp filename sanitization disabled via YTDLP_SANITIZE_FILENAMES")
+
     if extra:
         opts.update(extra)
 
     return opts
+
+
+def _choose_title(info: dict):
+    """Prefer English/ASCII title variants when available."""
+    for key in ("title_en", "alt_title", "display_id", "title"):
+        title = info.get(key)
+        if title:
+            return title
+
+    # Fallback: normalize to ASCII-friendly text for filesystem safety.
+    full_title = info.get("title") or "download"
+    normalized = unicodedata.normalize("NFKD", full_title)
+    ascii_title = normalized.encode("ascii", errors="ignore").decode("ascii")
+    return ascii_title or "download"
 
 
 # ---------- Public APIs ----------
@@ -224,7 +250,7 @@ def get_video_info(url: str):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
-            title = info.get("title") or "download"
+            title = _choose_title(info)
             formats = []
 
             for f in info.get("formats", []):
@@ -329,7 +355,7 @@ def download_video(
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                title = info.get("title") or "download"
+                title = _choose_title(info)
 
                 if info.get("_filename"):
                     filepath = info["_filename"]
