@@ -167,6 +167,7 @@ async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, 
     if audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
         if ext == ".m4a" or ext == ".aac":
+            logger.info("Source file %s is already AAC/M4A, copying without re-encoding", src_path)
             cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
         else:
             audio_codec = await _probe_audio_codec(src_path)
@@ -176,6 +177,7 @@ async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, 
             else:
                 cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-map", "0:a:0", "-c:a", "aac", "-b:a", "192k", dst]
     else:  # video
+        logger.info("Processing video file %s, copying streams without re-encoding", src_path)
         dst = os.path.join(full_dir, f"{name}.mp4")
         cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
