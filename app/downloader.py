@@ -4,8 +4,9 @@ import tempfile
 import glob
 import janus
 import unicodedata
-from app.log_config import setup_logger
+import re
 import functools
+from app.log_config import setup_logger
 
 import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError
@@ -197,11 +198,6 @@ def _base_ydl_opts(extra: dict | None = None):
         logger.info("yt-dlp cookie disabled")
 
     # ---------- File write behavior ----------
-    # Some mounted filesystems (CIFS, SMB, FUSE, etc.) may not support
-    # certain low-level file operations used by yt-dlp when writing
-    # temporary ".part" files. To avoid "Operation not supported" errors
-    # on such filesystems, disable use of .part temporary files by default.
-    # Set env `YTDLP_ALLOW_PARTS=1` to opt back into using .part files.
     allow_parts = os.environ.get("YTDLP_ALLOW_PARTS", "0").lower() in ("1", "true", "yes", "on")
     if not allow_parts:
         opts["nopart"] = True
@@ -210,13 +206,11 @@ def _base_ydl_opts(extra: dict | None = None):
         logger.info("yt-dlp .part usage enabled via YTDLP_ALLOW_PARTS")
 
     # ---------- Filename sanitization ----------
-    # Some filesystems and containers disallow exotic characters in
-    # filenames. Use a safer filename policy by default.
     sanitize_names = os.environ.get("YTDLP_SANITIZE_FILENAMES", "1").lower() in ("1", "true", "yes", "on")
     if sanitize_names:
-        opts["restrictfilenames"] = True
-        opts["windowsfilenames"] = True
-        logger.info("yt-dlp filename sanitization enabled (restrictfilenames/windowsfilenames)")
+        opts["restrictfilenames"] = False  
+        opts["windowsfilenames"] = True    
+        logger.info("yt-dlp filename sanitization: friendly mode enabled")
     else:
         logger.info("yt-dlp filename sanitization disabled via YTDLP_SANITIZE_FILENAMES")
 
@@ -226,18 +220,38 @@ def _base_ydl_opts(extra: dict | None = None):
     return opts
 
 
+def sanitize_filename_friendly(name: str, max_length: int = 200) -> str:
+    """
+    Makes a filename OS-safe but keeps it human-readable (preserves spaces).
+    """
+    if not name:
+        return "download"
+    
+    # 1. Remove invisible control characters (like \n, \r)
+    name = "".join(ch for ch in name if unicodedata.category(ch)[0] != "C")
+    
+    # 2. Replace illegal OS characters with a safe dash "-"
+    name = re.sub(r'[\\/*?:"<>|]', "-", name)
+    
+    # 3. Normalize to ASCII (removes accents, ignores exotic unicode)
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_name = normalized.encode("ascii", errors="ignore").decode("ascii")
+    
+    # 4. Clean up excessive spaces and trailing/leading junk
+    clean_name = re.sub(r'\s+', ' ', ascii_name).strip("-. ")
+    
+    # 5. Truncate to avoid filesystem limits (255 chars max, 200 is safe)
+    return clean_name[:max_length] or "download"
+
+
 def _choose_title(info: dict):
-    """Prefer English/ASCII title variants when available."""
+    """Prefer English/ASCII title variants, then sanitize for readability."""
     for key in ("title_en", "alt_title", "display_id", "title"):
         title = info.get(key)
         if title:
-            return title
+            return sanitize_filename_friendly(title)
 
-    # Fallback: normalize to ASCII-friendly text for filesystem safety.
-    full_title = info.get("title") or "download"
-    normalized = unicodedata.normalize("NFKD", full_title)
-    ascii_title = normalized.encode("ascii", errors="ignore").decode("ascii")
-    return ascii_title or "download"
+    return "download"
 
 
 # ---------- Public APIs ----------
@@ -293,7 +307,6 @@ def download_video(
     Returns updates via internal queue to be picked up by async code.
     """
 
-    import functools
     os.makedirs(out_dir, exist_ok=True)
 
     logger.info(
