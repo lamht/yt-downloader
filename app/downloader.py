@@ -246,7 +246,7 @@ def sanitize_filename_friendly(name: str, max_length: int = 200) -> str:
 
 def _choose_title(info: dict):
     """Prefer English/ASCII title variants, then sanitize for readability."""
-    for key in ("title_en", "alt_title", "display_id", "title"):
+    for key in ("title_en", "title", "alt_title", "display_id"):
         title = info.get(key)
         if title:
             return sanitize_filename_friendly(title)
