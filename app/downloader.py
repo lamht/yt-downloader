@@ -234,8 +234,8 @@ def sanitize_filename_friendly(name: str, max_length: int = 200) -> str:
     name = re.sub(r'[\\/*?:"<>|]', "-", name)
     
     # 3. Normalize to ASCII (removes accents, ignores exotic unicode)
-    normalized = unicodedata.normalize("NFKD", name)
-    ascii_name = normalized.encode("ascii", errors="ignore").decode("ascii")
+    #normalized = unicodedata.normalize("NFKD", name)
+    #ascii_name = normalized.encode("ascii", errors="ignore").decode("ascii")
     
     # 4. Clean up excessive spaces and trailing/leading junk
     clean_name = re.sub(r'\s+', ' ', ascii_name).strip("-. ")
