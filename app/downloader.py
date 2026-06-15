@@ -233,13 +233,6 @@ def sanitize_filename_friendly(name: str, max_length: int = 200) -> str:
     # 2. Replace illegal OS characters with a safe dash "-"
     name = re.sub(r'[\\/*?:"<>|]', "-", name)
     
-    # 3. Normalize to ASCII (removes accents, ignores exotic unicode)
-    #normalized = unicodedata.normalize("NFKD", name)
-    #ascii_name = normalized.encode("ascii", errors="ignore").decode("ascii")
-    
-    # 4. Clean up excessive spaces and trailing/leading junk
-    clean_name = re.sub(r'\s+', ' ', ascii_name).strip("-. ")
-    
     # 5. Truncate to avoid filesystem limits (255 chars max, 200 is safe)
     return clean_name[:max_length] or "download"
 
