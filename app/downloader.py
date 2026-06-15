@@ -234,7 +234,7 @@ def sanitize_filename_friendly(name: str, max_length: int = 200) -> str:
     name = re.sub(r'[\\/*?:"<>|]', "-", name)
     
     # 5. Truncate to avoid filesystem limits (255 chars max, 200 is safe)
-    return clean_name[:max_length] or "download"
+    return name[:max_length] or "download"
 
 
 def _choose_title(info: dict):
