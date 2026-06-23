@@ -166,9 +166,11 @@ async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, 
 
     if audio_only:
         dst = os.path.join(full_dir, f"{name}.aac")
-        if ext == ".m4a" or ext == ".aac":
-            logger.info("Source file %s is already AAC/M4A, copying without re-encoding", src_path)
-            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+        if ext in {".m4a", ".aac"}:
+            dst = os.path.join(full_dir, f"{name}{ext}")
+            logger.info("Source file %s is already AAC/M4A, moving file without re-encoding", src_path)
+            await asyncio.to_thread(shutil.move, src_path, dst)
+            cmd = None
         else:
             audio_codec = await _probe_audio_codec(src_path)
             logger.info("Probed audio codec for %s: %s", src_path, audio_codec)
@@ -181,14 +183,19 @@ async def process_file(src_path: str, dst_dir: str, audio_only: bool, key: str, 
     else:  # video
         logger.info("Processing video file %s, copying streams without re-encoding", src_path)
         dst = os.path.join(full_dir, f"{name}.mp4")
-        cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
+        if ext == ".mp4":
+            logger.info("Source file %s is already MP4, moving file without re-encoding", src_path)
+            await asyncio.to_thread(shutil.move, src_path, dst)
+            cmd = None
+        else:
+            cmd = ["ffmpeg", "-i", src_path, "-c", "copy", "-y", dst]
 
-    logger.info("Running FFmpeg command: %s", " ".join(cmd))
-    
-    proc_result = await _run_ffmpeg(cmd)
-    if proc_result["returncode"] != 0:
-        logger.error("FFmpeg error: %s", proc_result["stderr"])
-        raise RuntimeError(f"FFmpeg failed: {proc_result['stderr']}")
+    if cmd is not None:
+        logger.info("Running FFmpeg command: %s", " ".join(cmd))
+        proc_result = await _run_ffmpeg(cmd)
+        if proc_result["returncode"] != 0:
+            logger.error("FFmpeg error: %s", proc_result["stderr"])
+            raise RuntimeError(f"FFmpeg failed: {proc_result['stderr']}")
 
     final_path = dst
     file_name = os.path.basename(final_path)
