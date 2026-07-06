@@ -81,7 +81,18 @@ def _get_cookie_file():
         logger.info("Cookie file NOT found at: %s", path)
         return None
 
-    if _cookie_file_path:
+    # If the cookie file is readable by this process, use it directly.
+    # Only create a writable temp copy when the original file is not readable
+    # (e.g., mounted secret with restrictive permissions).
+    try:
+        if os.access(path, os.R_OK):
+            logger.info("Cookie file is readable; using directly: %s", path)
+            return path
+    except Exception:
+        # os.access may raise on some exotic filesystems; fall through to temp copy
+        pass
+
+    if _cookie_file_path and os.path.exists(_cookie_file_path):
         logger.info("Reusing temp cookie file: %s", _cookie_file_path)
         return _cookie_file_path
 
@@ -106,6 +117,25 @@ def _get_cookie_file():
 
     except Exception as e:
         logger.info("Failed to prepare temp cookie file: %s", e)
+        return None
+
+
+def preview_cookie(path: str | None = None, max_lines: int = 40) -> str | None:
+    """Return a short preview (first `max_lines`) of the cookie file for review.
+
+    Returns None if file missing or unreadable.
+    """
+    target = os.path.abspath(path or get_cookie_file_path())
+    if not os.path.exists(target):
+        logger.info("preview_cookie: cookie file not found: %s", target)
+        return None
+
+    try:
+        with open(target, "r", encoding="utf-8", errors="replace") as fh:
+            lines = fh.readlines()
+            return "".join(lines[:max_lines])
+    except Exception as e:
+        logger.warning("preview_cookie failed reading %s: %s", target, e)
         return None
 
 
