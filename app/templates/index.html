@@ -79,6 +79,10 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
+  display: none; /* hidden by default */
+}
+.cookie-panel.show {
+  display: block;
 }
 .cookie-status {
   margin-bottom: 8px;
@@ -261,6 +265,7 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
       <div class="actions-row">
         <button id="downloadBtn">⬇ Download</button>
         <button id="inspectBtn" class="secondary">Inspect</button>
+        <button id="toggleCookieBtn" class="secondary">Show cookie</button>
         <label class="chk">
           <input type="checkbox" checked id="audioOnly">
           <span>Audio only</span>
@@ -460,6 +465,7 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
       const cookieHint = document.getElementById('cookieHint');
       const formatsList = document.getElementById('formatsList');
       const audioOnly = document.getElementById('audioOnly');
+      const toggleCookieBtn = document.getElementById('toggleCookieBtn');
       reset();
 
       async function refreshCookieStatus() {
@@ -475,6 +481,18 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
       }
 
       refreshCookieStatus();
+
+      // Toggle cookie panel visibility
+      toggleCookieBtn.onclick = () => {
+        const panel = document.querySelector('.cookie-panel');
+        if (panel.classList.contains('show')) {
+          panel.classList.remove('show');
+          toggleCookieBtn.textContent = 'Show cookie';
+        } else {
+          panel.classList.add('show');
+          toggleCookieBtn.textContent = 'Hide cookie';
+        }
+      };
 
       urlInput.addEventListener('input', () => { formatsList.innerHTML = ''; document.getElementById('videoTitle').textContent = ''; selectedFormat = null; });
 
