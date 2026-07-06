@@ -19,6 +19,53 @@ logger.info("Logger for downloader initialized")
 _cookie_file_path = None
 
 
+def get_cookie_file_path() -> str:
+    """Return the default local cookie file path used by the app."""
+    return os.path.abspath(os.path.join(os.getcwd(), "cookies.txt"))
+
+
+def update_cookie_file(content: str, path: str | None = None) -> str:
+    """Write cookie content to the local cookie file and reset any cached temp copy."""
+    global _cookie_file_path
+
+    target_path = os.path.abspath(path or get_cookie_file_path())
+    directory = os.path.dirname(target_path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+    with open(target_path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+
+    if _cookie_file_path and os.path.exists(_cookie_file_path):
+        try:
+            os.remove(_cookie_file_path)
+        except OSError:
+            logger.warning("Failed to remove cached cookie temp file: %s", _cookie_file_path)
+
+    _cookie_file_path = None
+    logger.info("Cookie file updated at %s", target_path)
+    return target_path
+
+
+def clear_cookie_file(path: str | None = None) -> str | None:
+    """Remove the local cookie file and clear any cached temp copy."""
+    global _cookie_file_path
+
+    target_path = os.path.abspath(path or get_cookie_file_path())
+    if _cookie_file_path and os.path.exists(_cookie_file_path):
+        try:
+            os.remove(_cookie_file_path)
+        except OSError:
+            logger.warning("Failed to remove cached cookie temp file: %s", _cookie_file_path)
+
+    if os.path.exists(target_path):
+        os.remove(target_path)
+
+    _cookie_file_path = None
+    logger.info("Cookie file cleared at %s", target_path)
+    return target_path
+
+
 def _get_cookie_file():
     """
     Read COOKIE_PATH env.
@@ -27,12 +74,8 @@ def _get_cookie_file():
     """
     global _cookie_file_path
 
-    path = os.environ.get("COOKIE_PATH")
-    logger.info("COOKIE_PATH env = %s", path)
-
-    if not path:
-        logger.info("COOKIE_PATH not set")
-        return None
+    path = get_cookie_file_path()
+    logger.info("Using cookie file path = %s", path)
 
     if not os.path.isfile(path):
         logger.info("Cookie file NOT found at: %s", path)

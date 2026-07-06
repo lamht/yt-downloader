@@ -243,6 +243,55 @@ async def inspect(request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/cookie/status")
+async def cookie_status():
+    """Return the local cookie file status for the UI."""
+    from app import downloader
+
+    path = downloader.get_cookie_file_path()
+    return {
+        "path": path,
+        "exists": os.path.exists(path),
+        "message": "Using local cookie file",
+    }
+
+
+@app.post("/cookie")
+async def update_cookie(request: Request):
+    """Update the local cookie file used by yt-dlp."""
+    data = await request.json() or {}
+    content = data.get("content")
+
+    if content is None:
+        raise HTTPException(status_code=400, detail="content is required")
+
+    try:
+        from app import downloader
+        target_path = downloader.update_cookie_file(content)
+        return {
+            "status": "ok",
+            "path": target_path,
+        }
+    except Exception as e:
+        logger.error("cookie update failed: %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/cookie/clear")
+async def clear_cookie():
+    """Remove the local cookie file."""
+    try:
+        from app import downloader
+        target_path = downloader.clear_cookie_file()
+        return {
+            "status": "cleared",
+            "path": target_path,
+        }
+    except Exception as e:
+        logger.error("cookie clear failed: %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/download")
 async def download(request: Request):
     """Start a download job"""
