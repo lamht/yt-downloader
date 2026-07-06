@@ -8,6 +8,14 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
+def test_index_page_contains_youtube_login_helper():
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert b"Login YouTube" in response.content
+
+
 class CookieApiTests(unittest.TestCase):
     def test_update_cookie_endpoint_writes_cookie_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:

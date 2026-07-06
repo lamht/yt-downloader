@@ -270,9 +270,11 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
       <div class="cookie-panel">
         <h3>Cookie file</h3>
         <div id="cookieStatus" class="cookie-status">Checking cookie file…</div>
+        <div id="cookieHint" class="cookie-status" style="margin-top: 6px;">Sign in to YouTube in the popup, then paste the exported cookie text here.</div>
         <input id="cookieFile" type="file" accept=".txt,.data,.json" style="margin-bottom: 10px;" />
         <textarea id="cookieContent" placeholder="Or paste cookie content as text here"></textarea>
         <div class="actions-row" style="margin-top: 10px;">
+          <button id="loginYoutubeBtn" class="secondary">Login YouTube</button>
           <button id="saveCookieBtn" class="secondary">Save cookie</button>
           <button id="clearCookieBtn" class="secondary">Clear cookie</button>
         </div>
@@ -449,11 +451,13 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
       const urlInput = document.getElementById('url');
       const inspectBtn = document.getElementById('inspectBtn');
       const downloadBtn = document.getElementById('downloadBtn');
+      const loginYoutubeBtn = document.getElementById('loginYoutubeBtn');
       const saveCookieBtn = document.getElementById('saveCookieBtn');
       const clearCookieBtn = document.getElementById('clearCookieBtn');
       const cookieFile = document.getElementById('cookieFile');
       const cookieContent = document.getElementById('cookieContent');
       const cookieStatus = document.getElementById('cookieStatus');
+      const cookieHint = document.getElementById('cookieHint');
       const formatsList = document.getElementById('formatsList');
       const audioOnly = document.getElementById('audioOnly');
       reset();
@@ -498,6 +502,19 @@ button:disabled { background-color:#555;color:#ccc;cursor:not-allowed;opacity:.6
             formatsList.appendChild(row);
           });
         } catch (e) { toast(e.message, true); } finally { inspectBtn.disabled = false; }
+      };
+
+      loginYoutubeBtn.onclick = () => {
+        const popup = window.open(
+          'https://accounts.google.com/ServiceLogin?service=youtube&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2F',
+          'youtubeLogin',
+          'width=980,height=860,noopener,noreferrer'
+        );
+        if (popup) {
+          cookieHint.textContent = 'YouTube login popup opened. Sign in there, then paste the exported cookie text into the box above.';
+        } else {
+          cookieHint.textContent = 'Popup blocked. Please allow popups, then try again.';
+        }
       };
 
       saveCookieBtn.onclick = async () => {
