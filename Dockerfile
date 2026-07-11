@@ -38,8 +38,8 @@ RUN apt-get update \
 
 # ---------- Python dependencies ----------
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel \
- && pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel 
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ---------- Create non-root user for security ----------
 # Chowning the /app directory BEFORE copying the files prevents Docker 
