@@ -8,22 +8,21 @@ WORKDIR /app
 
 # ---------- Metadata ----------
 LABEL maintainer="yt-downloader" \
-      description="YouTube video downloader with FastAPI and JavaScript runtime support" \
+      description="YouTube video downloader with FastAPI and Deno JS engine support" \
       version="1.0.0"
 
-# ---------- Python & App environment optimizations ----------
+# ---------- Python runtime optimizations ----------
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONOPTIMIZE=2 \
     ENV=production \
     PORT=5000
 
-# ---------- Copy Deno from Stage 1 ----------
-# This satisfies the requirement for a JS engine (like Deno) without bloated manual installs
+# ---------- Extract JS Engine Dependency ----------
+# Places Deno in the system PATH so yt-dlp-ejs can find it automatically
 COPY --from=deno-bin /usr/local/bin/deno /usr/local/bin/deno
 
 # ---------- System dependencies ----------
-# Installs the actual FFmpeg binary (not the python package) and utilities
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     ffmpeg \
@@ -39,7 +38,9 @@ RUN pip install --upgrade pip setuptools \
 
 # ---------- Create non-root user for security ----------
 RUN useradd -m -u 1000 downloader \
+ && mkdir -p /app \
  && chown -R downloader:downloader /app
+
 USER downloader
 
 # ---------- App source ----------
