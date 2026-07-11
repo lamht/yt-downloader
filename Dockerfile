@@ -24,18 +24,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Copy from the actual root path (/deno) used by official denoland binaries
 COPY --from=deno-bin /deno /usr/local/bin/deno
 
-# ---------- System dependencies ----------
+# ---------- System & Build dependencies ----------
 RUN apt-get update \
  && apt-get install -y -o Acquire::Retries=3 --no-install-recommends \
     ffmpeg \
     ca-certificates \
     curl \
+    gcc \
+    python3-dev \
+    build-essential \
  && rm -rf /var/lib/apt/lists/* \
  && apt-get clean
 
 # ---------- Python dependencies ----------
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools \
+RUN pip install --upgrade pip setuptools wheel \
  && pip install --no-cache-dir -r requirements.txt
 
 # ---------- Create non-root user for security ----------
