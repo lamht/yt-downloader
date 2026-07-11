@@ -1,29 +1,54 @@
-# ---------- Deno Engine Binary Loader ----------
+# ---------- Stage 1: Grab Deno Binary ----------
 FROM denoland/deno:bin-2.1.9 AS deno-bin
 
-# ---------- Main App Stage ----------
+# ---------- Stage 2: Final Production Image ----------
 FROM python:3.11-slim
-
-# Copy the Deno binary from its official root path to your runtime's system PATH
-COPY --from=deno-bin /deno /usr/local/bin/deno
-
-# System dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Environment variables
-ENV ENABLE_DENO=true
-ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install Python requirements
+# ---------- Metadata ----------
+LABEL maintainer="yt-downloader" \
+      description="YouTube video downloader with FastAPI and Deno JS engine support" \
+      version="1.0.0"
+
+# ---------- Runtime & Framework Optimizations ----------
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONOPTIMIZE=2 \
+    ENV=production \
+    PORT=5000 \
+    ENABLE_DENO=true
+
+# ---------- Extract JS Engine Dependency ----------
+# Copy from the actual root path (/deno) used by official denoland binaries
+COPY --from=deno-bin /deno /usr/local/bin/deno
+
+# ---------- System dependencies ----------
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    ca-certificates \
+    curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && apt-get clean
+
+# ---------- Python dependencies ----------
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip setuptools \
+ && pip install --no-cache-dir -r requirements.txt
 
-# Copy application source
-COPY . .
+# ---------- Create non-root user for security ----------
+RUN useradd -m -u 1000 downloader
 
-CMD ["python", "main.py"]
+# ---------- App source ----------
+COPY --chown=downloader:downloader . .
+
+# Adjust permissions on the app directory so the runner can save streams
+RUN chown -R downloader:downloader /app
+
+USER downloader
+
+EXPOSE 5000
+
+# ---------- Run app (Uvicorn + asyncio) ----------
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --log-level warning"]
