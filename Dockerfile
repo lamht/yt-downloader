@@ -11,15 +11,16 @@ LABEL maintainer="yt-downloader" \
       description="YouTube video downloader with FastAPI and Deno JS engine support" \
       version="1.0.0"
 
-# ---------- Python runtime optimizations ----------
+# ---------- Runtime & Framework Optimizations ----------
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONOPTIMIZE=2 \
     ENV=production \
-    PORT=5000
+    PORT=5000 \
+    ENABLE_DENO=true
 
 # ---------- Extract JS Engine Dependency ----------
-# Places Deno in the system PATH so yt-dlp-ejs can find it automatically
+# Places Deno in the system PATH so your Python code's shutil.which("deno") passes
 COPY --from=deno-bin /usr/local/bin/deno /usr/local/bin/deno
 
 # ---------- System dependencies ----------
