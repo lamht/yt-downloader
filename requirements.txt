@@ -6,4 +6,4 @@ aiohttp==3.11.2           # Async HTTP (critical security patches)
 
 # --- Core YouTube Downloader Suite ---
 yt-dlp>=2026.07.09        # YouTube downloader core (latest patch against YouTube throttling)
-yt-dlp-ejs>=2026.03.17    # Matching JavaScript solver package
+yt-dlp-ejs>=0.8.0         # Matching JavaScript solver package
