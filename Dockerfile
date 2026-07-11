@@ -17,7 +17,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONOPTIMIZE=2 \
     ENV=production \
     PORT=5000 \
-    ENABLE_DENO=true
+    ENABLE_DENO=true \
+    DEBIAN_FRONTEND=noninteractive
 
 # ---------- Extract JS Engine Dependency ----------
 # Copy from the actual root path (/deno) used by official denoland binaries
@@ -25,7 +26,7 @@ COPY --from=deno-bin /deno /usr/local/bin/deno
 
 # ---------- System dependencies ----------
 RUN apt-get update \
- && apt-get install -y --no-install-recommends \
+ && apt-get install -y -o Acquire::Retries=3 --no-install-recommends \
     ffmpeg \
     ca-certificates \
     curl \
@@ -38,13 +39,13 @@ RUN pip install --upgrade pip setuptools \
  && pip install --no-cache-dir -r requirements.txt
 
 # ---------- Create non-root user for security ----------
-RUN useradd -m -u 1000 downloader
+# Chowning the /app directory BEFORE copying the files prevents Docker 
+# from creating a duplicate filesystem layer, saving build time and size.
+RUN useradd -m -u 1000 downloader \
+ && chown -R downloader:downloader /app
 
 # ---------- App source ----------
 COPY --chown=downloader:downloader . .
-
-# Adjust permissions on the app directory so the runner can save streams
-RUN chown -R downloader:downloader /app
 
 USER downloader
 
